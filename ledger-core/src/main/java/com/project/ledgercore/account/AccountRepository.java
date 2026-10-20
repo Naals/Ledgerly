@@ -46,4 +46,20 @@ public class AccountRepository {
                 .query(ROW_MAPPER)
                 .optional();
     }
+
+
+    public Account findOrCreateSystem(String reference, Currency currency) {
+        jdbc.sql("INSERT INTO accounts (owner_ref, type, currency, allow_negative) "
+                        + "VALUES (:reference, 'SYSTEM', :currency, TRUE) "
+                        + "ON CONFLICT (owner_ref, currency) WHERE type = 'SYSTEM' DO NOTHING")
+                .param("reference", reference)
+                .param("currency", currency.getCurrencyCode())
+                .update();
+        return jdbc.sql("SELECT " + COLUMNS + " FROM accounts "
+                        + "WHERE owner_ref = :reference AND currency = :currency AND type = 'SYSTEM'")
+                .param("reference", reference)
+                .param("currency", currency.getCurrencyCode())
+                .query(ROW_MAPPER)
+                .single();
+    }
 }
