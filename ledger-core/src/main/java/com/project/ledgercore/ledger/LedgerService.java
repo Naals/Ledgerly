@@ -1,6 +1,9 @@
 package com.project.ledgercore.ledger;
 
+import com.project.ledgercore.common.BadRequestException;
 import com.project.ledgercore.common.Money;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -29,4 +32,25 @@ public class LedgerService {
     public Optional<Money> balanceOf(UUID accountId) {
         return ledger.balanceOf(accountId);
     }
+
+    public static final int MAX_PAGE_SIZE = 200;
+
+    /** One page of an account's entries, newest first. Pass the returned cursor as {@code beforeId} for the next page. */
+    @Transactional(readOnly = true)
+    public EntryPage entriesOf(UUID accountId, Long beforeId, int limit) {
+        if (limit < 1 || limit > MAX_PAGE_SIZE) {
+            throw new BadRequestException("invalid-limit", "limit must be between 1 and " + MAX_PAGE_SIZE);
+        }
+        if (beforeId != null && beforeId < 1) {
+            throw new BadRequestException("invalid-cursor", "before must be a positive entry id");
+        }
+
+        // fetch one extra row: if it exists, there is a next page
+        List<EntryView> rows = ledger.findEntries(accountId, beforeId, limit + 1);
+        boolean hasMore = rows.size() > limit;
+        List<EntryView> items = hasMore ? rows.subList(0, limit) : rows;
+        Long nextBefore = hasMore ? items.get(items.size() - 1).id() : null;
+        return new EntryPage(List.copyOf(items), nextBefore);
+    }
+
 }

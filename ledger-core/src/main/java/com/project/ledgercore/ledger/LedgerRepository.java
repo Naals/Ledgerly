@@ -1,7 +1,10 @@
 package com.project.ledgercore.ledger;
 
 import com.project.ledgercore.common.Money;
+
+import java.time.OffsetDateTime;
 import java.util.Currency;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -48,5 +51,30 @@ public class LedgerRepository {
                         rs.getLong("balance"),
                         Currency.getInstance(rs.getString("currency"))))
                 .optional();
+    }
+
+    /** Entries of one account, newest first. {@code beforeId} is an exclusive keyset cursor (null = first page). */
+    public List<EntryView> findEntries(UUID accountId, Long beforeId, int limit) {
+        String sql = "SELECT e.id, e.transaction_id, t.type, t.description, e.amount, e.currency, e.created_at "
+                + "FROM ledger_entries e JOIN ledger_transactions t ON t.id = e.transaction_id "
+                + "WHERE e.account_id = :accountId "
+                + (beforeId == null ? "" : "AND e.id < :beforeId ")
+                + "ORDER BY e.id DESC LIMIT :limit";
+
+        JdbcClient.StatementSpec statement = jdbc.sql(sql)
+                .param("accountId", accountId)
+                .param("limit", limit);
+        if (beforeId != null) {
+            statement = statement.param("beforeId", beforeId);
+        }
+
+        return statement.query((rs, rowNum) -> new EntryView(
+                        rs.getLong("id"),
+                        rs.getObject("transaction_id", UUID.class),
+                        TransactionType.valueOf(rs.getString("type")),
+                        rs.getString("description"),
+                        new Money(rs.getLong("amount"), Currency.getInstance(rs.getString("currency"))),
+                        rs.getObject("created_at", OffsetDateTime.class)))
+                .list();
     }
 }
