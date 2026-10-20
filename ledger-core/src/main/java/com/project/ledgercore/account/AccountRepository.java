@@ -62,4 +62,12 @@ public class AccountRepository {
                 .query(ROW_MAPPER)
                 .single();
     }
+
+
+    public Optional<Account> findAndLockById(UUID id) {
+        return jdbc.sql("SELECT " + COLUMNS + " FROM accounts WHERE id = :id FOR NO KEY UPDATE")
+                .param("id", id)
+                .query(ROW_MAPPER)
+                .optional();
+    }
 }

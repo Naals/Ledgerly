@@ -59,4 +59,27 @@ public class CashService {
             throw new CurrencyMismatchException(account.id(), account.currency(), amount.currency());
         }
     }
+
+    /**
+     * Cash out: debit the customer, credit the bank's cash account.
+     * The account row is locked first, so concurrent withdrawals queue up and each one
+     * sees the balance left by the previous one. A customer account can never go negative.
+     */
+    @Transactional
+    public UUID withdraw(UUID accountId, Money amount) {
+        requirePositive(amount);
+        Account account = accounts.findAndLockById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+        requireUsable(account, amount);
+
+        Money balance = ledger.balanceOf(account.id()).orElseThrow(() -> new AccountNotFoundException(accountId));
+        if (balance.minus(amount).isNegative()) {
+            throw new InsufficientFundsException(account.id(), balance, amount);
+        }
+
+        Account cash = systemAccounts.cashInBank(amount.currency());
+        return ledger.post(new PostingRequest(TransactionType.WITHDRAWAL, "Cash withdrawal", List.of(
+                PostingLine.debit(account.id(), amount),
+                PostingLine.credit(cash.id(), amount))));
+    }
 }
