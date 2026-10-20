@@ -4,6 +4,7 @@ import java.util.Currency;
 import java.util.UUID;
 
 import com.project.ledgercore.common.Money;
+import com.project.ledgercore.ledger.EntryPage;
 import com.project.ledgercore.ledger.LedgerService;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,9 @@ public class AccountService {
         return accounts.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
     }
 
-
+    public EntryPage entriesOf(UUID id, Long beforeId, int limit) {
+        get(id);   // 404 if the account does not exist
+        return ledger.entriesOf(id, beforeId, limit);
+    }
 
 }

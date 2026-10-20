@@ -39,4 +39,11 @@ public class AccountController {
     public BalanceResponse balance(@PathVariable UUID id) {
         return BalanceResponse.from(id, accounts.balanceOf(id));
     }
+
+    @GetMapping("/{id}/entries")
+    public EntryPageResponse entries(@PathVariable UUID id,
+                                     @RequestParam(required = false) Long before,
+                                     @RequestParam(defaultValue = "50") int limit) {
+        return EntryPageResponse.from(accounts.entriesOf(id, before, limit));
+    }
 }
