@@ -5,6 +5,8 @@ import com.project.ledgercore.common.LedgerException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
+
+import com.project.ledgercore.common.NotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -55,5 +57,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Request body is missing or malformed");
         problem.setType(URI.create(PROBLEM_TYPE_PREFIX + "malformed-request"));
         return handleExceptionInternal(ex, problem, headers, status, request);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    ProblemDetail handleNotFound(NotFoundException ex) {
+        return problem(HttpStatus.NOT_FOUND, ex);
     }
 }

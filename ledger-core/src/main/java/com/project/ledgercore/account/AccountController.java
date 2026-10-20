@@ -3,11 +3,10 @@ package com.project.ledgercore.account;
 import com.project.ledgercore.common.Currencies;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -28,5 +27,10 @@ public class AccountController {
                 .buildAndExpand(account.id())
                 .toUri();
         return ResponseEntity.created(location).body(AccountResponse.from(account));
+    }
+
+    @GetMapping("/{id}")
+    public AccountResponse get(@PathVariable UUID id) {
+        return AccountResponse.from(accounts.get(id));
     }
 }
