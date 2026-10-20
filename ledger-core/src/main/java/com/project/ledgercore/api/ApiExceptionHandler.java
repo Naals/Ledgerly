@@ -1,12 +1,11 @@
 package com.project.ledgercore.api;
 
-import com.project.ledgercore.common.BadRequestException;
-import com.project.ledgercore.common.LedgerException;
+import com.project.ledgercore.common.*;
+
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
 
-import com.project.ledgercore.common.NotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -62,5 +61,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     ProblemDetail handleNotFound(NotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, ex);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    ProblemDetail handleConflict(ConflictException ex) {
+        return problem(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    ProblemDetail handleBusinessRule(BusinessRuleException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex);
     }
 }
