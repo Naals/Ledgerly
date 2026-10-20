@@ -19,6 +19,7 @@ public class AccountController {
         this.accounts = accounts;
     }
 
+
     @PostMapping
     public ResponseEntity<AccountResponse> create(@Valid @RequestBody CreateAccountRequest request) {
         Account account = accounts.openCustomerAccount(request.ownerRef(), Currencies.parse(request.currency()));
@@ -32,5 +33,10 @@ public class AccountController {
     @GetMapping("/{id}")
     public AccountResponse get(@PathVariable UUID id) {
         return AccountResponse.from(accounts.get(id));
+    }
+
+    @GetMapping("/{id}/balance")
+    public BalanceResponse balance(@PathVariable UUID id) {
+        return BalanceResponse.from(id, accounts.balanceOf(id));
     }
 }
