@@ -20,6 +20,30 @@ curl localhost:8080/actuator/health
 mvn test       # fast unit tests
 mvn verify     # + integration tests against real PostgreSQL via Testcontainers (Docker required)
 ```
+## API tour
+
+```bash
+# open an account and keep its id
+ID=$(curl -s -X POST localhost:8080/api/v1/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"ownerRef":"aslan","currency":"KZT"}' | jq -r .id)
+
+# deposit 1000.00 KZT (amounts are integer minor units)
+curl -s -X POST localhost:8080/api/v1/accounts/$ID/deposits \
+  -H 'Content-Type: application/json' -d '{"amountMinor":100000,"currency":"KZT"}'
+
+# withdraw 300.00 KZT, then check the balance and the statement
+curl -s -X POST localhost:8080/api/v1/accounts/$ID/withdrawals \
+  -H 'Content-Type: application/json' -d '{"amountMinor":30000,"currency":"KZT"}'
+curl -s localhost:8080/api/v1/accounts/$ID/balance
+curl -s "localhost:8080/api/v1/accounts/$ID/entries?limit=10"
+
+# an overdraft is a 422 problem document with a stable code
+curl -s -X POST localhost:8080/api/v1/accounts/$ID/withdrawals \
+  -H 'Content-Type: application/json' -d '{"amountMinor":99999999,"currency":"KZT"}'
+```
+
+Error conventions and design decisions: [`docs/adr`](docs/adr).
 
 ## Roadmap
 
