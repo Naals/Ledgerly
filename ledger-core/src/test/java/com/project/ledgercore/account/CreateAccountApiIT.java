@@ -16,6 +16,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 class CreateAccountApiIT extends AbstractIntegrationTest {
 
+    private static final String TRUNCATED_JSON = "{\"ownerRef\": \"aslan\"";
+
     @Autowired
     MockMvc mvc;
 
@@ -62,8 +64,9 @@ class CreateAccountApiIT extends AbstractIntegrationTest {
     void malformedJsonIsAProblemToo() throws Exception {
         mvc.perform(post("/api/v1/accounts")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(""))
+                        .content(TRUNCATED_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.type").value("urn:ledgerly:problem:malformed-request"));
     }
 }
