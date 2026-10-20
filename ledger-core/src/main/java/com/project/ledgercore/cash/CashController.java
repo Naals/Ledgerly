@@ -29,4 +29,13 @@ public class CashController {
         return new CashResponse(
                 transactionId, accountId, "DEPOSIT", amount.minorUnits(), amount.currency().getCurrencyCode());
     }
+
+    @PostMapping("/withdrawals")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CashResponse withdraw(@PathVariable UUID accountId, @Valid @RequestBody CashRequest request) {
+        Money amount = request.toMoney();
+        UUID transactionId = cash.withdraw(accountId, amount);
+        return new CashResponse(
+                transactionId, accountId, "WITHDRAWAL", amount.minorUnits(), amount.currency().getCurrencyCode());
+    }
 }
