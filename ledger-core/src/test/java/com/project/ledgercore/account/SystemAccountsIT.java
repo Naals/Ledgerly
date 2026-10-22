@@ -9,11 +9,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+
+import com.project.ledgercore.support.ConcurrentRunner;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,25 +49,12 @@ class SystemAccountsIT extends AbstractIntegrationTest {
     @Test
     void concurrentCallsCreateExactlyOneAccount() throws Exception {
         Currency chf = Currency.getInstance("CHF");
-        int threads = 8;
-        ExecutorService pool = Executors.newFixedThreadPool(threads);
-        CountDownLatch start = new CountDownLatch(1);
-        Set<UUID> ids = new HashSet<>();
-        try {
-            List<Future<UUID>> futures = new ArrayList<>();
-            for (int i = 0; i < threads; i++) {
-                futures.add(pool.submit(() -> {
-                    start.await();
-                    return systemAccounts.cashInBank(chf).id();
-                }));
-            }
-            start.countDown();
-            for (Future<UUID> future : futures) {
-                ids.add(future.get(30, TimeUnit.SECONDS));
-            }
-        } finally {
-            pool.shutdownNow();
+        List<Callable<UUID>> calls = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            calls.add(() -> systemAccounts.cashInBank(chf).id());
         }
+
+        Set<UUID> ids = new HashSet<>(ConcurrentRunner.runAll(8, calls));
 
         assertThat(ids).hasSize(1);
         Integer rows = jdbc.queryForObject(
