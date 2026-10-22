@@ -22,29 +22,42 @@ mvn verify     # + integration tests against real PostgreSQL via Testcontainers 
 ```
 ## API tour
 
+Every money-moving POST needs an `Idempotency-Key` header. A retry with the same key and body is
+safe: it returns the original result and moves no money.
+
 ```bash
-# open an account and keep its id
-ID=$(curl -s -X POST localhost:8080/api/v1/accounts \
-  -H 'Content-Type: application/json' \
+# open two accounts and keep their ids
+A=$(curl -s -X POST localhost:8080/api/v1/accounts -H 'Content-Type: application/json' \
   -d '{"ownerRef":"aslan","currency":"KZT"}' | jq -r .id)
+B=$(curl -s -X POST localhost:8080/api/v1/accounts -H 'Content-Type: application/json' \
+  -d '{"ownerRef":"dana","currency":"KZT"}' | jq -r .id)
 
-# deposit 1000.00 KZT (amounts are integer minor units)
-curl -s -X POST localhost:8080/api/v1/accounts/$ID/deposits \
-  -H 'Content-Type: application/json' -d '{"amountMinor":100000,"currency":"KZT"}'
+# deposit 1000.00 KZT into A (amounts are integer minor units)
+curl -s -X POST localhost:8080/api/v1/accounts/$A/deposits \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"amountMinor":100000,"currency":"KZT"}'
 
-# withdraw 300.00 KZT, then check the balance and the statement
-curl -s -X POST localhost:8080/api/v1/accounts/$ID/withdrawals \
-  -H 'Content-Type: application/json' -d '{"amountMinor":30000,"currency":"KZT"}'
-curl -s localhost:8080/api/v1/accounts/$ID/balance
-curl -s "localhost:8080/api/v1/accounts/$ID/entries?limit=10"
+# transfer 300.00 KZT from A to B; run it twice with the SAME key to see a replay
+KEY=$(uuidgen)
+for i in 1 2; do
+  curl -si -X POST localhost:8080/api/v1/transfers \
+    -H 'Content-Type: application/json' -H "Idempotency-Key: $KEY" \
+    -d "{\"fromAccountId\":\"$A\",\"toAccountId\":\"$B\",\"amountMinor\":30000,\"currency\":\"KZT\"}" \
+    | grep -E "HTTP|Idempotent-Replayed|transactionId"
+done
+
+# balances, statement, and one transaction with its balanced entries
+curl -s localhost:8080/api/v1/accounts/$A/balance
+curl -s "localhost:8080/api/v1/accounts/$A/entries?limit=10"
+curl -s "localhost:8080/api/v1/accounts?ownerRef=aslan"
 
 # an overdraft is a 422 problem document with a stable code
-curl -s -X POST localhost:8080/api/v1/accounts/$ID/withdrawals \
-  -H 'Content-Type: application/json' -d '{"amountMinor":99999999,"currency":"KZT"}'
+curl -s -X POST localhost:8080/api/v1/transfers \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d "{\"fromAccountId\":\"$A\",\"toAccountId\":\"$B\",\"amountMinor\":99999999,\"currency\":\"KZT\"}"
 ```
 
-Error conventions and design decisions: [`docs/adr`](docs/adr).
-
+Design decisions: [`docs/adr`](docs/adr).
 ## Roadmap
 
 | Week | Focus |

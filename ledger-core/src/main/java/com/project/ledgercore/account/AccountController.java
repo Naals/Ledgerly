@@ -1,7 +1,6 @@
 package com.project.ledgercore.account;
 
 import com.project.ledgercore.common.Currencies;
-import com.project.ledgercore.ledger.EntryPage;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
