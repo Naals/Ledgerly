@@ -83,6 +83,7 @@ class DepositApiIT extends AbstractIntegrationTest {
     private static org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder deposit(
             UUID accountId, long amountMinor, String currency) {
         return post("/api/v1/accounts/{id}/deposits", accountId)
+                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amountMinor\": %d, \"currency\": \"%s\"}".formatted(amountMinor, currency));
     }

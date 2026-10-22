@@ -66,6 +66,7 @@ class WithdrawalApiIT extends AbstractIntegrationTest {
 
     private static MockHttpServletRequestBuilder withdrawal(UUID accountId, long amountMinor) {
         return post("/api/v1/accounts/{id}/withdrawals", accountId)
+                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amountMinor\": %d, \"currency\": \"KZT\"}".formatted(amountMinor));
     }
