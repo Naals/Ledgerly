@@ -1,6 +1,7 @@
 package com.project.ledgercore.account;
 
 import java.util.Currency;
+import java.util.List;
 import java.util.UUID;
 
 import com.project.ledgercore.common.Money;
@@ -35,6 +36,10 @@ public class AccountService {
     public EntryPage entriesOf(UUID id, Long beforeId, int limit) {
         get(id);   // 404 if the account does not exist
         return ledger.entriesOf(id, beforeId, limit);
+    }
+
+    public List<Account> customerAccountOf(String ownerRef) {
+        return accounts.findCustomerAccountsByOwner(ownerRef);
     }
 
 }

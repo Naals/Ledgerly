@@ -1,8 +1,10 @@
 package com.project.ledgercore.account;
 
 import com.project.ledgercore.common.Currencies;
+import com.project.ledgercore.ledger.EntryPage;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -45,5 +47,13 @@ public class AccountController {
                                      @RequestParam(required = false) Long before,
                                      @RequestParam(defaultValue = "50") int limit) {
         return EntryPageResponse.from(accounts.entriesOf(id, before, limit));
+    }
+
+    @GetMapping
+    public List<AccountResponse> list(@RequestParam String ownerRef) {
+        return accounts.customerAccountOf(ownerRef)
+                .stream()
+                .map(AccountResponse::from)
+                .toList();
     }
 }

@@ -2,6 +2,7 @@ package com.project.ledgercore.account;
 
 import java.time.OffsetDateTime;
 import java.util.Currency;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.RowMapper;
@@ -69,5 +70,13 @@ public class AccountRepository {
                 .param("id", id)
                 .query(ROW_MAPPER)
                 .optional();
+    }
+
+    public List<Account> findCustomerAccountsByOwner(String ownerRef) {
+        return jdbc.sql(" SELECT " + COLUMNS + " FROM accounts "
+                + "WHERE owner_ref = :ownerRef AND type = 'CUSTOMER' ORDER BY created_at, id")
+                .param("ownerRef", ownerRef)
+                .query(ROW_MAPPER)
+                .list();
     }
 }
