@@ -77,4 +77,30 @@ public class LedgerRepository {
                         rs.getObject("created_at", OffsetDateTime.class)))
                 .list();
     }
+
+    public Optional<TransactionView> findTransaction(UUID transactionId) {
+        return jdbc.sql("SELECT id, type, description, created_at FROM ledger_transactions WHERE id = :id")
+                .param("id", transactionId)
+                .query((rs, rowNum) -> new TransactionView(
+                        rs.getObject("id", UUID.class),
+                        TransactionType.valueOf(rs.getString("type")),
+                        rs.getString("description"),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        List.of()))
+                .optional()
+                .map(header -> new TransactionView(
+                        header.id(), header.type(), header.description(), header.createdAt(),
+                        findTransactionEntries(transactionId)));
+    }
+
+    private List<TransactionEntryView> findTransactionEntries(UUID transactionId) {
+        return jdbc.sql("SELECT id, account_id, amount, currency FROM ledger_entries "
+                        + "WHERE transaction_id = :id ORDER BY id")
+                .param("id", transactionId)
+                .query((rs, rowNum) -> new TransactionEntryView(
+                        rs.getLong("id"),
+                        rs.getObject("account_id", UUID.class),
+                        new Money(rs.getLong("amount"), Currency.getInstance(rs.getString("currency")))))
+                .list();
+    }
 }

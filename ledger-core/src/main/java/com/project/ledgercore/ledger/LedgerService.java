@@ -53,4 +53,10 @@ public class LedgerService {
         return new EntryPage(List.copyOf(items), nextBefore);
     }
 
+    @Transactional(readOnly = true)
+    public TransactionView transaction(UUID transactionId) {
+        return ledger.findTransaction(transactionId)
+                .orElseThrow(() -> new TransactionNotFoundException(transactionId));
+    }
+
 }
