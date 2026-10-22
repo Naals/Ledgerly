@@ -107,6 +107,7 @@ class TransferApiIT extends AbstractIntegrationTest {
 
     private MockHttpServletRequestBuilder transfer(UUID from, UUID to, long amountMinor) {
         return post("/api/v1/transfers")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"fromAccountId": "%s", "toAccountId": "%s", "amountMinor": %d, "currency": "KZT"}
