@@ -1,13 +1,6 @@
 package com.project.ledgercore.cash;
 
-import com.project.ledgercore.account.Account;
-import com.project.ledgercore.account.AccountNotActiveException;
-import com.project.ledgercore.account.AccountNotFoundException;
-import com.project.ledgercore.account.AccountRepository;
-import com.project.ledgercore.account.AccountStatus;
-import com.project.ledgercore.account.CurrencyMismatchException;
-import com.project.ledgercore.account.SystemAccounts;
-import com.project.ledgercore.common.BadRequestException;
+import com.project.ledgercore.account.*;
 import com.project.ledgercore.common.Money;
 import com.project.ledgercore.ledger.LedgerService;
 import com.project.ledgercore.ledger.PostingLine;
@@ -18,17 +11,22 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.project.ledgercore.account.AccountRules.*;
+
 /** Cash in and cash out against the bank's own cash account. */
 @Service
 public class CashService {
 
     private final AccountRepository accounts;
     private final SystemAccounts systemAccounts;
+    private final DebitGuard debitGuard;
     private final LedgerService ledger;
 
-    public CashService(AccountRepository accounts, SystemAccounts systemAccounts, LedgerService ledger) {
+    public CashService(AccountRepository accounts, SystemAccounts systemAccounts,
+                       DebitGuard debitGuard, LedgerService ledger) {
         this.accounts = accounts;
         this.systemAccounts = systemAccounts;
+        this.debitGuard = debitGuard;
         this.ledger = ledger;
     }
 
@@ -37,27 +35,13 @@ public class CashService {
     public UUID deposit(UUID accountId, Money amount) {
         requirePositive(amount);
         Account account = accounts.findById(accountId).orElseThrow(() -> new AccountNotFoundException(accountId));
+        requireCustomerAccount(account);
         requireUsable(account, amount);
 
         Account cash = systemAccounts.cashInBank(amount.currency());
         return ledger.post(new PostingRequest(TransactionType.DEPOSIT, "Cash deposit", List.of(
                 PostingLine.debit(cash.id(), amount),
                 PostingLine.credit(account.id(), amount))));
-    }
-
-    private static void requirePositive(Money amount) {
-        if (!amount.isPositive()) {
-            throw new BadRequestException("invalid-amount", "Amount must be positive, was " + amount);
-        }
-    }
-
-    private static void requireUsable(Account account, Money amount) {
-        if (account.status() != AccountStatus.ACTIVE) {
-            throw new AccountNotActiveException(account.id(), account.status());
-        }
-        if (!account.currency().equals(amount.currency())) {
-            throw new CurrencyMismatchException(account.id(), account.currency(), amount.currency());
-        }
     }
 
     /**
@@ -70,12 +54,9 @@ public class CashService {
         requirePositive(amount);
         Account account = accounts.findAndLockById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
+        requireCustomerAccount(account);
         requireUsable(account, amount);
-
-        Money balance = ledger.balanceOf(account.id()).orElseThrow(() -> new AccountNotFoundException(accountId));
-        if (balance.minus(amount).isNegative()) {
-            throw new InsufficientFundsException(account.id(), balance, amount);
-        }
+        debitGuard.requireFunds(account, amount);
 
         Account cash = systemAccounts.cashInBank(amount.currency());
         return ledger.post(new PostingRequest(TransactionType.WITHDRAWAL, "Cash withdrawal", List.of(

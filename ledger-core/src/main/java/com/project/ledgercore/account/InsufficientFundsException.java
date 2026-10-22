@@ -1,4 +1,4 @@
-package com.project.ledgercore.cash;
+package com.project.ledgercore.account;
 
 import com.project.ledgercore.common.BusinessRuleException;
 import com.project.ledgercore.common.Money;

@@ -11,6 +11,7 @@ import com.project.ledgercore.account.CurrencyMismatchException;
 import com.project.ledgercore.account.NewAccount;
 import com.project.ledgercore.account.SystemAccounts;
 import com.project.ledgercore.common.BadRequestException;
+import com.project.ledgercore.common.BusinessRuleException;
 import com.project.ledgercore.common.Money;
 import com.project.ledgercore.ledger.LedgerService;
 import com.project.ledgercore.support.AbstractIntegrationTest;
@@ -84,5 +85,14 @@ class CashServiceIT extends AbstractIntegrationTest {
                 .hasMessageContaining("positive");
         assertThatThrownBy(() -> cash.deposit(alice.id(), Money.of(-5, "KZT")))
                 .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void depositToASystemAccountIsRefused() {
+        Account cashInBank = systemAccounts.cashInBank(KZT);
+
+        assertThatThrownBy(() -> cash.deposit(cashInBank.id(), Money.of(100, "KZT")))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("not a customer account");
     }
 }
