@@ -1,11 +1,12 @@
 package com.project.ledgercore.account;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import com.project.ledgercore.common.LockOrder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +25,6 @@ public class AccountLocker {
      * Same order as PostgreSQL uses for {@code ORDER BY id} on a uuid column (the canonical lower-case
      * text form sorts exactly like the raw bytes). Do not use {@link UUID#compareTo}: it orders differently.
      */
-    static final Comparator<UUID> LOCK_ORDER = Comparator.comparing(UUID::toString);
 
     private final AccountRepository accounts;
 
@@ -38,7 +38,7 @@ public class AccountLocker {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public Map<UUID, Account> lockInOrder(Collection<UUID> ids) {
-        List<UUID> ordered = ids.stream().distinct().sorted(LOCK_ORDER).toList();
+        List<UUID> ordered = ids.stream().distinct().sorted(LockOrder.BY_ID).toList();
         Map<UUID, Account> locked = new LinkedHashMap<>();
         for (UUID id : ordered) {
             Account account = accounts.findAndLockById(id).orElseThrow(() -> new AccountNotFoundException(id));
