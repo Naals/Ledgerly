@@ -1,8 +1,10 @@
 package com.project.ledgercore.ledger;
 
 import com.project.ledgercore.common.BadRequestException;
+import com.project.ledgercore.common.LockOrder;
 import com.project.ledgercore.common.Money;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,7 +24,12 @@ public class LedgerService {
     @Transactional
     public UUID post(PostingRequest request) {
         UUID transactionId = ledger.insertTransaction(request.type(), request.description());
-        for (PostingLine line : request.lines()) {
+        // The balance trigger locks each customer account row as its entry is inserted. Inserting in
+        // ascending account id keeps that lock order identical in every transaction (ADR 0004).
+        List<PostingLine> ordered = request.lines().stream()
+                .sorted(Comparator.comparing(PostingLine::accountId, LockOrder.BY_ID))
+                .toList();
+        for (PostingLine line : ordered) {
             ledger.insertEntry(transactionId, line.accountId(), line.amount());
         }
         return transactionId;

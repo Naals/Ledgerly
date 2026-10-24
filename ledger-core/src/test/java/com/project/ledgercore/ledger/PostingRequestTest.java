@@ -105,4 +105,13 @@ class PostingRequestTest {
 
         assertThat(request.lines()).hasSize(2);
     }
+
+    @Test
+    void anAccountMayAppearInOnlyOneLine() {
+        assertThatThrownBy(() -> new PostingRequest(TransactionType.TRANSFER, null, List.of(
+                PostingLine.debit(customer, Money.of(100, "KZT")),
+                PostingLine.credit(customer, Money.of(100, "KZT")))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most one line");
+    }
 }

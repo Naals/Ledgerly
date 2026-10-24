@@ -29,6 +29,10 @@ public record PostingRequest(TransactionType type, String description, List<Post
             throw new IllegalArgumentException("a ledger transaction needs at least two lines");
         }
 
+        if (lines.stream().map(PostingLine::accountId).distinct().count() != lines.size()) {
+            throw new IllegalArgumentException("each account may appear in at most one line");
+        }
+
         Map<Currency, Long> totals = new HashMap<>();
         for (PostingLine line : lines) {
             if (line.amount().isZero()) {
