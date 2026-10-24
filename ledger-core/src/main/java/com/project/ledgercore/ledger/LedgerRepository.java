@@ -39,13 +39,16 @@ public class LedgerRepository {
                 .update();
     }
 
-    /** The balance is the sum of the account's entries; empty if the account does not exist. */
+    /**
+     * The balance of an account; empty if the account does not exist. Customer accounts read their cached
+     * balance in constant time. The bank's own accounts, which are not cached, are summed from their entries.
+     */
     public Optional<Money> balanceOf(UUID accountId) {
-        return jdbc.sql("SELECT a.currency, COALESCE(SUM(e.amount), 0) AS balance "
-                        + "FROM accounts a "
-                        + "LEFT JOIN ledger_entries e ON e.account_id = a.id "
-                        + "WHERE a.id = :accountId "
-                        + "GROUP BY a.currency")
+        return jdbc.sql("SELECT a.currency, "
+                        + "CASE WHEN a.allow_negative "
+                        + "THEN (SELECT COALESCE(SUM(e.amount), 0) FROM ledger_entries e WHERE e.account_id = a.id) "
+                        + "ELSE a.balance END AS balance "
+                        + "FROM accounts a WHERE a.id = :accountId")
                 .param("accountId", accountId)
                 .query((rs, rowNum) -> new Money(
                         rs.getLong("balance"),
