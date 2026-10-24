@@ -25,7 +25,7 @@ class BalancedTransactionIT extends AbstractIntegrationTest {
 
     @Test
     void unbalancedTransactionIsRejectedAtCommitAndLeavesNothingBehind() {
-        UUID from = fixtures.customerAccount("KZT");
+        UUID from = fixtures.systemAccount("KZT");   // customer accounts cannot go negative any more (V7)
         UUID to = fixtures.customerAccount("KZT");
         UUID txId = UUID.randomUUID();
 
