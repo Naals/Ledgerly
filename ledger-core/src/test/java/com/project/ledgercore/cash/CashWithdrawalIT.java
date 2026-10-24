@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 import com.project.ledgercore.support.ConcurrentRunner;
+import com.project.ledgercore.support.LedgerInvariants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +37,9 @@ class CashWithdrawalIT extends AbstractIntegrationTest {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    LedgerInvariants invariants;
+
     @Test
     void withdrawalDebitsTheCustomerAndCreditsCashInBank() {
         Account alice = accounts.create(NewAccount.customer("alice", KZT));
@@ -47,6 +51,8 @@ class CashWithdrawalIT extends AbstractIntegrationTest {
 
         assertThat(ledger.balanceOf(alice.id())).contains(Money.of(600, "KZT"));
         assertThat(ledger.balanceOf(cashInBank.id())).contains(cashBefore.minus(Money.of(600, "KZT")));
+
+        invariants.assertBalanceCacheMatchesEntries();
     }
 
     @Test
@@ -60,6 +66,8 @@ class CashWithdrawalIT extends AbstractIntegrationTest {
                 .hasMessageContaining("5.01 KZT");
 
         assertThat(ledger.balanceOf(alice.id())).contains(Money.of(500, "KZT"));
+
+        invariants.assertBalanceCacheMatchesEntries();
     }
 
     @Test
@@ -70,6 +78,8 @@ class CashWithdrawalIT extends AbstractIntegrationTest {
         cash.withdraw(alice.id(), Money.of(300, "KZT"));
 
         assertThat(ledger.balanceOf(alice.id())).contains(Money.zero(KZT));
+
+        invariants.assertBalanceCacheMatchesEntries();
     }
 
     @Test
@@ -80,9 +90,10 @@ class CashWithdrawalIT extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> cash.withdraw(alice.id(), Money.of(100, "KZT")))
                 .isInstanceOf(AccountNotActiveException.class);
+
+        invariants.assertBalanceCacheMatchesEntries();
     }
 
-    /** 20 concurrent withdrawals of 100 against a balance of 1,000: exactly 10 may succeed. */
     /** 20 concurrent withdrawals of 100 against a balance of 1,000: exactly 10 may succeed. */
     @Test
     void concurrentWithdrawalsNeverOverdrawTheAccount() throws Exception {
@@ -105,5 +116,7 @@ class CashWithdrawalIT extends AbstractIntegrationTest {
 
         assertThat(succeeded).isEqualTo(10);
         assertThat(ledger.balanceOf(alice.id())).contains(Money.zero(KZT));
+
+        invariants.assertBalanceCacheMatchesEntries();
     }
 }
