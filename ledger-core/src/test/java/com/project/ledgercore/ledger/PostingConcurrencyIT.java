@@ -66,6 +66,7 @@ class PostingConcurrencyIT extends AbstractIntegrationTest {
         assertThat(ledger.balanceOf(a.id())).contains(Money.of(100_000, "KZT"));
         assertThat(ledger.balanceOf(b.id())).contains(Money.of(100_000, "KZT"));
         invariants.assertBalanceCacheMatchesEntries();
+        invariants.assertEntryStampsAreConsistent();
     }
 
     @Test

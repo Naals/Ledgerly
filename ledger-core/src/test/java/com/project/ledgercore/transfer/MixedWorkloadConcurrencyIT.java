@@ -89,7 +89,9 @@ class MixedWorkloadConcurrencyIT extends AbstractIntegrationTest {
         for (Account account : pool) {
             assertThat(ledger.balanceOf(account.id()).orElseThrow().isNegative()).isFalse();
         }
+
         invariants.assertBalanceCacheMatchesEntries();
+        invariants.assertEntryStampsAreConsistent();
     }
 
     private List<Account> fundedAccounts() {
