@@ -9,6 +9,8 @@ import com.project.ledgercore.ledger.EntryPage;
 import com.project.ledgercore.ledger.LedgerService;
 import org.springframework.stereotype.Service;
 
+import static com.project.ledgercore.account.AccountRules.requireCustomerAccount;
+
 @Service
 public class AccountService {
 
@@ -33,9 +35,9 @@ public class AccountService {
         return accounts.findById(id).orElseThrow(() -> new AccountNotFoundException(id));
     }
 
-    public EntryPage entriesOf(UUID id, Long beforeId, int limit) {
-        get(id);   // 404 if the account does not exist
-        return ledger.entriesOf(id, beforeId, limit);
+    public EntryPage entriesOf(UUID id, Long beforeSequence, int limit) {
+        requireCustomerAccount(get(id));   // 404 if unknown; only customer accounts have a statement
+        return ledger.entriesOf(id, beforeSequence, limit);
     }
 
     public List<Account> customerAccountOf(String ownerRef) {

@@ -6,21 +6,25 @@ import java.util.UUID;
 
 public record EntryResponse(
         long id,
+        long sequence,
         UUID transactionId,
         String type,
         String description,
         long amountMinor,
+        long balanceAfterMinor,
         String currency,
-        OffsetDateTime createdAt) {
+        OffsetDateTime postedAt) {
 
     static EntryResponse from(EntryView entry) {
         return new EntryResponse(
                 entry.id(),
+                entry.sequence(),
                 entry.transactionId(),
                 entry.type().name(),
                 entry.description(),
                 entry.amount().minorUnits(),
+                entry.balanceAfter().minorUnits(),
                 entry.amount().currency().getCurrencyCode(),
-                entry.createdAt());
+                entry.postedAt());
     }
 }

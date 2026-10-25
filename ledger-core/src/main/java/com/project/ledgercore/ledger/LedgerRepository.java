@@ -56,29 +56,37 @@ public class LedgerRepository {
                 .optional();
     }
 
-    /** Entries of one account, newest first. {@code beforeId} is an exclusive keyset cursor (null = first page). */
-    public List<EntryView> findEntries(UUID accountId, Long beforeId, int limit) {
-        String sql = "SELECT e.id, e.transaction_id, t.type, t.description, e.amount, e.currency, e.created_at "
+    /**
+     * A customer account's entries, newest first, by the account's own entry number.
+     * {@code beforeSequence} is an exclusive keyset cursor (null = first page).
+     */
+    public List<EntryView> findEntries(UUID accountId, Long beforeSequence, int limit) {
+        String sql = "SELECT e.id, e.account_seq, e.balance_after, e.transaction_id, t.type, t.description, "
+                + "e.amount, e.currency, e.posted_at "
                 + "FROM ledger_entries e JOIN ledger_transactions t ON t.id = e.transaction_id "
-                + "WHERE e.account_id = :accountId "
-                + (beforeId == null ? "" : "AND e.id < :beforeId ")
-                + "ORDER BY e.id DESC LIMIT :limit";
+                + "WHERE e.account_id = :accountId AND e.account_seq IS NOT NULL "
+                + (beforeSequence == null ? "" : "AND e.account_seq < :beforeSequence ")
+                + "ORDER BY e.account_seq DESC LIMIT :limit";
 
         JdbcClient.StatementSpec statement = jdbc.sql(sql)
                 .param("accountId", accountId)
                 .param("limit", limit);
-        if (beforeId != null) {
-            statement = statement.param("beforeId", beforeId);
+        if (beforeSequence != null) {
+            statement = statement.param("beforeSequence", beforeSequence);
         }
 
-        return statement.query((rs, rowNum) -> new EntryView(
-                        rs.getLong("id"),
-                        rs.getObject("transaction_id", UUID.class),
-                        TransactionType.valueOf(rs.getString("type")),
-                        rs.getString("description"),
-                        new Money(rs.getLong("amount"), Currency.getInstance(rs.getString("currency"))),
-                        rs.getObject("created_at", OffsetDateTime.class)))
-                .list();
+        return statement.query((rs, rowNum) -> {
+            Currency currency = Currency.getInstance(rs.getString("currency"));
+            return new EntryView(
+                    rs.getLong("id"),
+                    rs.getLong("account_seq"),
+                    rs.getObject("transaction_id", UUID.class),
+                    TransactionType.valueOf(rs.getString("type")),
+                    rs.getString("description"),
+                    new Money(rs.getLong("amount"), currency),
+                    new Money(rs.getLong("balance_after"), currency),
+                    rs.getObject("posted_at", OffsetDateTime.class));
+        }).list();
     }
 
     public Optional<TransactionView> findTransaction(UUID transactionId) {

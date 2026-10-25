@@ -64,7 +64,8 @@ class LedgerEntriesIT extends AbstractIntegrationTest {
         assertThat(entry.type()).isEqualTo(TransactionType.DEPOSIT);
         assertThat(entry.description()).isEqualTo("Cash deposit");
         assertThat(entry.amount()).isEqualTo(Money.of(100, "KZT"));
-        assertThat(entry.createdAt()).isNotNull();
+        assertThat(entry.postedAt()).isNotNull();
+
     }
 
     @Test

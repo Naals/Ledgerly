@@ -54,21 +54,25 @@ public class LedgerService {
         return ledger.balanceOf(accountId);
     }
 
-    /** One page of an account's entries, newest first. Pass the returned cursor as {@code beforeId} for the next page. */
+    /**
+     * One page of a customer account's statement, newest first. Entries are numbered per account
+     * (1, 2, 3 ...) in the order they were applied, so the number doubles as the paging cursor:
+     * pass the returned {@code nextBefore} as {@code beforeSequence} to get the next page.
+     */
     @Transactional(readOnly = true)
-    public EntryPage entriesOf(UUID accountId, Long beforeId, int limit) {
+    public EntryPage entriesOf(UUID accountId, Long beforeSequence, int limit) {
         if (limit < 1 || limit > MAX_PAGE_SIZE) {
             throw new BadRequestException("invalid-limit", "limit must be between 1 and " + MAX_PAGE_SIZE);
         }
-        if (beforeId != null && beforeId < 1) {
-            throw new BadRequestException("invalid-cursor", "before must be a positive entry id");
+        if (beforeSequence != null && beforeSequence < 1) {
+            throw new BadRequestException("invalid-cursor", "before must be a positive entry number");
         }
 
         // fetch one extra row: if it exists, there is a next page
-        List<EntryView> rows = ledger.findEntries(accountId, beforeId, limit + 1);
+        List<EntryView> rows = ledger.findEntries(accountId, beforeSequence, limit + 1);
         boolean hasMore = rows.size() > limit;
         List<EntryView> items = hasMore ? rows.subList(0, limit) : rows;
-        Long nextBefore = hasMore ? items.get(items.size() - 1).id() : null;
+        Long nextBefore = hasMore ? items.get(items.size() - 1).sequence() : null;
         return new EntryPage(List.copyOf(items), nextBefore);
     }
 
