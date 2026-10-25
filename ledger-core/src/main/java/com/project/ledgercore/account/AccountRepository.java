@@ -79,4 +79,11 @@ public class AccountRepository {
                 .query(ROW_MAPPER)
                 .list();
     }
+
+    public void updateStatus(UUID id, AccountStatus status) {
+        jdbc.sql("UPDATE accounts SET status = :status WHERE id = :id")
+                .param("status", status.name())
+                .param("id", id)
+                .update();
+    }
 }
