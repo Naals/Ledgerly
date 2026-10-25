@@ -4,6 +4,8 @@ import com.project.ledgercore.common.BadRequestException;
 import com.project.ledgercore.common.BusinessRuleException;
 import com.project.ledgercore.common.LockOrder;
 import com.project.ledgercore.common.Money;
+
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -80,5 +82,10 @@ public class LedgerService {
     public TransactionView transaction(UUID transactionId) {
         return ledger.findTransaction(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException(transactionId));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Money> balanceAt(UUID accountId, OffsetDateTime at) {
+        return ledger.balanceAt(accountId, at);
     }
 }

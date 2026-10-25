@@ -3,9 +3,11 @@ package com.project.ledgercore.account;
 import com.project.ledgercore.common.Currencies;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -54,5 +56,16 @@ public class AccountController {
                 .stream()
                 .map(AccountResponse::from)
                 .toList();
+    }
+
+    @GetMapping("/{id}/balance")
+    public BalanceResponse balance(
+            @PathVariable UUID id,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at) {
+        if (at == null) {
+            return BalanceResponse.from(id, accounts.balanceOf(id));
+        }
+        return BalanceResponse.from(id, accounts.balanceAt(id, at), at);
     }
 }

@@ -114,4 +114,21 @@ public class LedgerRepository {
                         new Money(rs.getLong("amount"), Currency.getInstance(rs.getString("currency")))))
                 .list();
     }
+
+    /**
+     * The balance of a customer account at a moment in time: the running balance after the last entry
+     * posted at or before it, or zero if there was none. Empty if the account does not exist.
+     */
+    public Optional<Money> balanceAt(UUID accountId, OffsetDateTime at) {
+        return jdbc.sql("SELECT a.currency, COALESCE((SELECT e.balance_after FROM ledger_entries e "
+                        + "WHERE e.account_id = a.id AND e.account_seq IS NOT NULL AND e.posted_at <= :at "
+                        + "ORDER BY e.posted_at DESC, e.account_seq DESC LIMIT 1), 0) AS balance "
+                        + "FROM accounts a WHERE a.id = :accountId")
+                .param("accountId", accountId)
+                .param("at", at)
+                .query((rs, rowNum) -> new Money(
+                        rs.getLong("balance"),
+                        Currency.getInstance(rs.getString("currency"))))
+                .optional();
+    }
 }

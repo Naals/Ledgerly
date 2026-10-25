@@ -1,5 +1,6 @@
 package com.project.ledgercore.account;
 
+import java.time.OffsetDateTime;
 import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
@@ -42,6 +43,11 @@ public class AccountService {
 
     public List<Account> customerAccountOf(String ownerRef) {
         return accounts.findCustomerAccountsByOwner(ownerRef);
+    }
+
+    public Money balanceAt(UUID id, OffsetDateTime at) {
+        requireCustomerAccount(get(id));   // only customer accounts keep a running balance
+        return ledger.balanceAt(id, at).orElseThrow(() -> new AccountNotFoundException(id));
     }
 
 }
