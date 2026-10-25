@@ -1,9 +1,6 @@
 package com.project.ledgercore.ledger;
 
-import com.project.ledgercore.common.BadRequestException;
-import com.project.ledgercore.common.BusinessRuleException;
-import com.project.ledgercore.common.LockOrder;
-import com.project.ledgercore.common.Money;
+import com.project.ledgercore.common.*;
 
 import java.time.OffsetDateTime;
 import java.util.Comparator;
@@ -27,8 +24,8 @@ public class LedgerService {
 
     /**
      * Records every line of the request atomically: either all lines are stored or none is.
-     * A posting that would overdraw a customer account is refused by the database and reported as
-     * {@code insufficient-funds}.
+     * The database refuses a posting that would overdraw a customer account ({@code insufficient-funds})
+     * or touch a frozen or closed one ({@code account-not-active}).
      */
     @Transactional
     public UUID post(PostingRequest request) {
@@ -46,6 +43,9 @@ public class LedgerService {
         } catch (DataIntegrityViolationException e) {
             if (LedgerConstraints.isOverdraftViolation(e)) {
                 throw new BusinessRuleException("insufficient-funds", "The posting would overdraw an account");
+            }
+            if (LedgerConstraints.isInactiveAccountViolation(e)) {
+                throw new ConflictException("account-not-active", "The posting touches an account that is not active");
             }
             throw e;
         }
