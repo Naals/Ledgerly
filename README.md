@@ -55,6 +55,21 @@ curl -s "localhost:8080/api/v1/accounts?ownerRef=aslan"
 curl -s -X POST localhost:8080/api/v1/transfers \
   -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
   -d "{\"fromAccountId\":\"$A\",\"toAccountId\":\"$B\",\"amountMinor\":99999999,\"currency\":\"KZT\"}"
+  
+  # statement with entry numbers and the running balance after each entry
+curl -s "localhost:8080/api/v1/accounts/$A/entries?limit=5"
+
+# what the balance was at a moment in time (use Z for UTC)
+curl -s "localhost:8080/api/v1/accounts/$A/balance?at=2026-10-24T10:00:00Z"
+
+# freeze with a reason, look at the history, unfreeze
+curl -s -X POST localhost:8080/api/v1/accounts/$A/freeze \
+  -H 'Content-Type: application/json' -d '{"reason":"fraud check"}'
+curl -s localhost:8080/api/v1/accounts/$A/status-history
+curl -s -X POST localhost:8080/api/v1/accounts/$A/unfreeze
+
+# an account can only be closed when it is empty
+curl -s -X POST localhost:8080/api/v1/accounts/$B/close
 ```
 
 Design decisions: [`docs/adr`](docs/adr).

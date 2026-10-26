@@ -77,3 +77,15 @@ An earlier run on the V7 schema gave 862 transfers/s. With about 20% noise on th
 Machine: FILL IN (the same machine as the baseline)
 
 PASTE ledger-core/target/benchmark-report.md HERE
+
+
+## Day 5: the stamping trigger (V9)
+
+Transfers (SQL level, 8 clients, 15 s, same data and machine as above):
+
+| | transfers/s | mean | p50 | p95 | p99 |
+|---|---|---|---|---|---|
+| cached balance (V8) | 1,056 | 7.58 ms | 5.75 ms | 11.74 ms | 17.03 ms |
+| with entry stamping (V9) | 1,081 | 7.40 ms | 5.80 ms | 12.72 ms | 18.16 ms |
+
+Within the noise of this machine: the stamping costs nothing measurable.
