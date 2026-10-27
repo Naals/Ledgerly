@@ -20,11 +20,12 @@ public class LedgerRepository {
         this.jdbc = jdbc;
     }
 
-    public UUID insertTransaction(TransactionType type, String description) {
-        return jdbc.sql("INSERT INTO ledger_transactions (type, description) "
-                        + "VALUES (:type, :description) RETURNING id")
+    public UUID insertTransaction(TransactionType type, String description, UUID reversesTransactionId) {
+        return jdbc.sql("INSERT INTO ledger_transactions (type, description, reverses_transaction_id) "
+                        + "VALUES (:type, :description, :reverses) RETURNING id")
                 .param("type", type.name())
                 .param("description", description)
+                .param("reverses", reversesTransactionId)
                 .query((rs, rowNum) -> rs.getObject("id", UUID.class))
                 .single();
     }

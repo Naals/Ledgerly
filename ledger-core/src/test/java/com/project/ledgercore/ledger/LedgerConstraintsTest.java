@@ -54,4 +54,13 @@ class LedgerConstraintsTest {
         assertThat(LedgerConstraints.isInactiveAccountViolation(overdraft)).isFalse();
         assertThat(LedgerConstraints.isOverdraftViolation(inactive)).isFalse();
     }
+
+    @Test
+    void recognisesATransactionThatWasAlreadyReversed() {
+        RuntimeException error = new RuntimeException("ERROR: duplicate key value violates unique constraint "
+                + "\"uq_transactions_reverses\"");
+
+        assertThat(LedgerConstraints.isAlreadyReversedViolation(error)).isTrue();
+        assertThat(LedgerConstraints.isOverdraftViolation(error)).isFalse();
+    }
 }

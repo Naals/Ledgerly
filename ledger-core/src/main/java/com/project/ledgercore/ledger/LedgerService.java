@@ -24,13 +24,15 @@ public class LedgerService {
 
     /**
      * Records every line of the request atomically: either all lines are stored or none is.
-     * The database refuses a posting that would overdraw a customer account ({@code insufficient-funds})
-     * or touch a frozen or closed one ({@code account-not-active}).
+     * The database refuses a posting that would overdraw a customer account ({@code insufficient-funds}),
+     * touch a frozen or closed one ({@code account-not-active}), or reverse a transaction twice
+     * ({@code already-reversed}).
      */
     @Transactional
     public UUID post(PostingRequest request) {
         try {
-            UUID transactionId = ledger.insertTransaction(request.type(), request.description());
+            UUID transactionId = ledger.insertTransaction(
+                    request.type(), request.description(), request.reversesTransactionId());
             // The balance trigger locks each customer account row as its entry is inserted. Inserting in
             // ascending account id keeps that lock order identical in every transaction (ADR 0004).
             List<PostingLine> ordered = request.lines().stream()
@@ -46,6 +48,9 @@ public class LedgerService {
             }
             if (LedgerConstraints.isInactiveAccountViolation(e)) {
                 throw new ConflictException("account-not-active", "The posting touches an account that is not active");
+            }
+            if (LedgerConstraints.isAlreadyReversedViolation(e)) {
+                throw new ConflictException("already-reversed", "The transaction was already reversed");
             }
             throw e;
         }
@@ -74,7 +79,7 @@ public class LedgerService {
         List<EntryView> rows = ledger.findEntries(accountId, beforeSequence, limit + 1);
         boolean hasMore = rows.size() > limit;
         List<EntryView> items = hasMore ? rows.subList(0, limit) : rows;
-        Long nextBefore = hasMore ? items.get(items.size() - 1).sequence() : null;
+        Long nextBefore = hasMore ? items.getLast().sequence() : null;
         return new EntryPage(List.copyOf(items), nextBefore);
     }
 

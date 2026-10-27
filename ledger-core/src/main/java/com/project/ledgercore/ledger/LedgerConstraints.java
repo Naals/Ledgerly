@@ -12,6 +12,9 @@ final class LedgerConstraints {
     /** CHECK (status <> 'CLOSED' OR balance = 0) on accounts, added in V10. */
     static final String CLOSED_IS_EMPTY = "ck_accounts_closed_is_empty";
 
+    /** UNIQUE (reverses_transaction_id) on ledger_transactions, added in V12: a transaction is reversed once. */
+    static final String ALREADY_REVERSED = "uq_transactions_reverses";
+
     private LedgerConstraints() {
     }
 
@@ -23,6 +26,11 @@ final class LedgerConstraints {
     /** True if the error says an entry was refused because its account is frozen or closed. */
     static boolean isInactiveAccountViolation(Throwable error) {
         return reports(error, ACCOUNT_NOT_ACTIVE) || reports(error, CLOSED_IS_EMPTY);
+    }
+
+    /** True if the error says the transaction being reversed already has a reversal. */
+    static boolean isAlreadyReversedViolation(Throwable error) {
+        return reports(error, ALREADY_REVERSED);
     }
 
     private static boolean reports(Throwable error, String fragment) {

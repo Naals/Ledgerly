@@ -114,4 +114,32 @@ class PostingRequestTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("at most one line");
     }
+
+    @Test
+    void aReversalMustNameTheTransactionItReverses() {
+        assertThatThrownBy(() -> new PostingRequest(TransactionType.REVERSAL, "undo", List.of(
+                PostingLine.debit(customer, Money.of(100, "KZT")),
+                PostingLine.credit(cashInBank, Money.of(100, "KZT")))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must name the transaction it reverses");
+    }
+
+    @Test
+    void onlyAReversalMayNameAReversedTransaction() {
+        assertThatThrownBy(() -> new PostingRequest(TransactionType.TRANSFER, null, List.of(
+                PostingLine.debit(customer, Money.of(100, "KZT")),
+                PostingLine.credit(cashInBank, Money.of(100, "KZT"))), UUID.randomUUID()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void aReversalThatNamesItsOriginalIsAccepted() {
+        UUID original = UUID.randomUUID();
+
+        PostingRequest request = new PostingRequest(TransactionType.REVERSAL, "undo", List.of(
+                PostingLine.credit(customer, Money.of(100, "KZT")),
+                PostingLine.debit(cashInBank, Money.of(100, "KZT"))), original);
+
+        assertThat(request.reversesTransactionId()).isEqualTo(original);
+    }
 }
