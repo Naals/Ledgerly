@@ -1,7 +1,11 @@
 package com.project.ledgercore.ledger;
 
-import com.project.ledgercore.common.*;
-
+import com.project.ledgercore.common.BadRequestException;
+import com.project.ledgercore.common.BusinessRuleException;
+import com.project.ledgercore.common.ConflictException;
+import com.project.ledgercore.common.LockOrder;
+import com.project.ledgercore.common.Money;
+import com.project.ledgercore.outbox.OutboxWriter;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
@@ -17,13 +21,16 @@ public class LedgerService {
     public static final int MAX_PAGE_SIZE = 200;
 
     private final LedgerRepository ledger;
+    private final OutboxWriter outbox;
 
-    public LedgerService(LedgerRepository ledger) {
+    public LedgerService(LedgerRepository ledger, OutboxWriter outbox) {
         this.ledger = ledger;
+        this.outbox = outbox;
     }
 
     /**
-     * Records every line of the request atomically: either all lines are stored or none is.
+     * Records every line of the request atomically: either all lines are stored or none is, and a
+     * {@code TransactionPosted} event is written to the outbox in the same transaction.
      * The database refuses a posting that would overdraw a customer account ({@code insufficient-funds}),
      * touch a frozen or closed one ({@code account-not-active}), or reverse a transaction twice
      * ({@code already-reversed}).
@@ -41,6 +48,8 @@ public class LedgerService {
             for (PostingLine line : ordered) {
                 ledger.insertEntry(transactionId, line.accountId(), line.amount());
             }
+            outbox.write("transaction", transactionId, "TransactionPosted",
+                    TransactionPostedEvent.of(transactionId, request));
             return transactionId;
         } catch (DataIntegrityViolationException e) {
             if (LedgerConstraints.isOverdraftViolation(e)) {
@@ -59,6 +68,11 @@ public class LedgerService {
     @Transactional(readOnly = true)
     public Optional<Money> balanceOf(UUID accountId) {
         return ledger.balanceOf(accountId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Money> balanceAt(UUID accountId, OffsetDateTime at) {
+        return ledger.balanceAt(accountId, at);
     }
 
     /**
@@ -87,11 +101,6 @@ public class LedgerService {
     public TransactionView transaction(UUID transactionId) {
         return ledger.findTransaction(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException(transactionId));
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Money> balanceAt(UUID accountId, OffsetDateTime at) {
-        return ledger.balanceAt(accountId, at);
     }
 
     @Transactional(readOnly = true)
