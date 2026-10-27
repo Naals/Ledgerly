@@ -93,4 +93,9 @@ public class LedgerService {
     public Optional<Money> balanceAt(UUID accountId, OffsetDateTime at) {
         return ledger.balanceAt(accountId, at);
     }
+
+    @Transactional(readOnly = true)
+    public Optional<UUID> reversalOf(UUID transactionId) {
+        return ledger.findReversalOf(transactionId);
+    }
 }

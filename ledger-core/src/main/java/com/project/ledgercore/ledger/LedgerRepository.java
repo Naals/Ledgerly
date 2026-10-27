@@ -132,4 +132,12 @@ public class LedgerRepository {
                         Currency.getInstance(rs.getString("currency"))))
                 .optional();
     }
+
+    /** The id of the reversal of a transaction, if it has been reversed. */
+    public Optional<UUID> findReversalOf(UUID transactionId) {
+        return jdbc.sql("SELECT id FROM ledger_transactions WHERE reverses_transaction_id = :id")
+                .param("id", transactionId)
+                .query((rs, rowNum) -> rs.getObject("id", UUID.class))
+                .optional();
+    }
 }
