@@ -21,6 +21,13 @@ management:
       probes:
         enabled: true
 
+ledger:
+  outbox:
+    relay:
+      enabled: true
+      poll-interval-ms: 1000
+      batch-size: 100
+
 logging:
   pattern:
     level: "%5p [%X{correlationId:-}]"
