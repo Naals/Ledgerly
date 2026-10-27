@@ -44,4 +44,9 @@ public class LedgerFixtures {
                 id, "owner-" + id, type, currency, allowNegative);
         return id;
     }
+
+    public void insertReversal(UUID transactionId, UUID reversesTransactionId) {
+        jdbc.update("INSERT INTO ledger_transactions (id, type, reverses_transaction_id) VALUES (?, 'REVERSAL', ?)",
+                transactionId, reversesTransactionId);
+    }
 }
