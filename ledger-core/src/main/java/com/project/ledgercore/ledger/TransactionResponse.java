@@ -5,7 +5,13 @@ import java.util.List;
 import java.util.UUID;
 
 public record TransactionResponse(
-        UUID id, String type, String description, OffsetDateTime createdAt, List<Line> entries) {
+        UUID id,
+        String type,
+        String description,
+        OffsetDateTime createdAt,
+        UUID reversesTransactionId,
+        UUID reversedByTransactionId,
+        List<Line> entries) {
 
     public record Line(long id, UUID accountId, long amountMinor, String currency) {
     }
@@ -16,6 +22,8 @@ public record TransactionResponse(
                 transaction.type().name(),
                 transaction.description(),
                 transaction.createdAt(),
+                transaction.reversesTransactionId(),
+                transaction.reversedByTransactionId(),
                 transaction.entries().stream()
                         .map(entry -> new Line(
                                 entry.id(),
