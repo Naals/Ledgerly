@@ -89,3 +89,16 @@ Transfers (SQL level, 8 clients, 15 s, same data and machine as above):
 | with entry stamping (V9) | 1,081 | 7.40 ms | 5.80 ms | 12.72 ms | 18.16 ms |
 
 Within the noise of this machine: the stamping costs nothing measurable.
+
+
+## Day 6: the outbox insert
+
+Transfers (SQL level, 8 clients, 12 s per run, run in turns on the same data and machine):
+
+| | run 1 | run 2 |
+|---|---|---|
+| without the outbox insert | 862 transfers/s | 1,240 transfers/s |
+| with the outbox insert | 1,182 transfers/s | 1,127 transfers/s |
+
+The difference between the two kinds is smaller than the difference between two runs of the same kind, so the
+outbox costs nothing measurable here. 27,542 events averaged 372 bytes of payload and took 17 MB.

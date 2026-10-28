@@ -85,3 +85,16 @@ Design decisions: [`docs/adr`](docs/adr).
 | 6 | Security (Keycloak, RBAC, PII encryption), audit log, multi-currency, statements read model |
 | 7 | Observability, partitioning and query tuning, load tests, chaos tests |
 | 8 | Kubernetes and Helm, CI/CD, hardening, documentation, demo, interview prep |
+
+
+# reverse a transfer: it needs an Idempotency-Key, can happen once, and only if the money is still there
+TX=$(curl -s -X POST localhost:8080/api/v1/transfers \
+-H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+-d "{\"fromAccountId\":\"$A\",\"toAccountId\":\"$B\",\"amountMinor\":1000,\"currency\":\"KZT\"}" | jq -r .transactionId)
+curl -s -X POST localhost:8080/api/v1/transactions/$TX/reversals \
+-H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+-d '{"reason":"sent to the wrong account"}'
+curl -s localhost:8080/api/v1/transactions/$TX      # shows reversedByTransactionId
+
+# every posting also wrote an event to the outbox; the relay logs it, and the lag is a metric
+curl -s localhost:8080/actuator/metrics/ledger.outbox.pending
