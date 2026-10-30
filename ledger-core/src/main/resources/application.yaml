@@ -10,6 +10,17 @@ spring:
     password: ${DB_PASSWORD:ledger}
   flyway:
     locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+        max.block.ms: 5000
 
 management:
   endpoints:
@@ -27,6 +38,7 @@ ledger:
       enabled: true
       poll-interval-ms: 1000
       batch-size: 100
+
 
 logging:
   pattern:
