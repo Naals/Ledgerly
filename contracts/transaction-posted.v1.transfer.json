@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "transactionId": "7d1f6a0e-2b1c-4c58-9a57-0c6f0d9a1b11",
+  "type": "TRANSFER",
+  "description": "Transfer",
+  "reversesTransactionId": null,
+  "entries": [
+    { "accountId": "0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e01", "amountMinor": -100000, "currency": "KZT" },
+    { "accountId": "0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e02", "amountMinor": 100000, "currency": "KZT" }
+  ]
+}
