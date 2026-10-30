@@ -10,6 +10,17 @@ spring:
     password: ${DB_PASSWORD:payments}
   flyway:
     locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: payment-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 payments:
   ledger:
@@ -20,6 +31,9 @@ payments:
     poll-interval-ms: 10000
     older-than-seconds: 30
     batch-size: 50
+  kafka:
+    enabled: true
+    ledger-topic: ledger.transaction-posted.v1
 
 
 management:

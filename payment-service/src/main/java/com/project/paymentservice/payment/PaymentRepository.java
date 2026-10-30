@@ -104,4 +104,12 @@ public class PaymentRepository {
                 .query((rs, rowNum) -> rs.getObject("id", UUID.class))
                 .list();
     }
+
+    /** Marks the COMPLETED payment that was made by this ledger transaction as REVERSED. Returns how many changed. */
+    public int markReversedByLedgerTransaction(UUID ledgerTransactionId) {
+        return jdbc.sql("UPDATE payments SET status = 'REVERSED' "
+                        + "WHERE ledger_transaction_id = :transactionId AND status = 'COMPLETED'")
+                .param("transactionId", ledgerTransactionId)
+                .update();
+    }
 }
