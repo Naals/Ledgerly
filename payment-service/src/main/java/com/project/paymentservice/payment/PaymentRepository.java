@@ -67,4 +67,29 @@ public class PaymentRepository {
                 .query(ROW_MAPPER)
                 .optional();
     }
+
+    /** Records the ledger's success. False if the payment was no longer pending. */
+    public boolean markCompleted(UUID id, UUID ledgerTransactionId) {
+        return jdbc.sql("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = :transactionId "
+                        + "WHERE id = :id AND status = 'PENDING'")
+                .param("transactionId", ledgerTransactionId)
+                .param("id", id)
+                .update() == 1;
+    }
+
+    /** Records the ledger's final refusal. False if the payment was no longer pending. */
+    public boolean markFailed(UUID id, String failureCode) {
+        return jdbc.sql("UPDATE payments SET status = 'FAILED', failure_code = :code "
+                        + "WHERE id = :id AND status = 'PENDING'")
+                .param("code", failureCode)
+                .param("id", id)
+                .update() == 1;
+    }
+
+    /** Counts an attempt the ledger could not answer. This also pushes the payment's next retry back. */
+    public void recordAttempt(UUID id) {
+        jdbc.sql("UPDATE payments SET attempts = attempts + 1 WHERE id = :id AND status = 'PENDING'")
+                .param("id", id)
+                .update();
+    }
 }
