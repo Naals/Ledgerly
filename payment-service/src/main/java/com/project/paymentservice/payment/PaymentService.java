@@ -4,6 +4,8 @@ import com.project.paymentservice.common.BadRequestException;
 import com.project.paymentservice.common.RequestFingerprint;
 import com.project.paymentservice.ledger.LedgerGateway;
 import com.project.paymentservice.ledger.LedgerResult;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -87,5 +89,18 @@ public class PaymentService {
             throw new IdempotencyKeyReuseException(idempotencyKey);
         }
         return new CreatedPayment(existing, true);
+    }
+
+    /** Executes pending payments the ledger has not answered for. Returns how many it tried. */
+    public int retryPending(int olderThanSeconds, int limit) {
+        List<UUID> stale = payments.findStalePending(olderThanSeconds, limit);
+        for (UUID id : stale) {
+            try {
+                execute(id);
+            } catch (RuntimeException e) {
+                log.warn("Retrying payment {} failed", id, e);
+            }
+        }
+        return stale.size();
     }
 }

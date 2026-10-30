@@ -15,6 +15,12 @@ payments:
   ledger:
     base-url: http://localhost:8080
     timeout-ms: 3000
+  retry:
+    enabled: true
+    poll-interval-ms: 10000
+    older-than-seconds: 30
+    batch-size: 50
+
 
 management:
   endpoints:

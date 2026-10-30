@@ -1,6 +1,7 @@
 package com.project.paymentservice.payment;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.RowMapper;
@@ -91,5 +92,16 @@ public class PaymentRepository {
         jdbc.sql("UPDATE payments SET attempts = attempts + 1 WHERE id = :id AND status = 'PENDING'")
                 .param("id", id)
                 .update();
+    }
+
+    /** Pending payments nobody has touched for {@code olderThanSeconds}, oldest first. */
+    public List<UUID> findStalePending(int olderThanSeconds, int limit) {
+        return jdbc.sql("SELECT id FROM payments WHERE status = 'PENDING' "
+                        + "AND updated_at < clock_timestamp() - make_interval(secs => CAST(:seconds AS double precision)) "
+                        + "ORDER BY updated_at LIMIT :limit")
+                .param("seconds", olderThanSeconds)
+                .param("limit", limit)
+                .query((rs, rowNum) -> rs.getObject("id", UUID.class))
+                .list();
     }
 }
