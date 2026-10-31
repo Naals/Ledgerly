@@ -58,6 +58,48 @@ services:
       timeout: 10s
       retries: 12
 
+  ledger-core:
+    build:
+      context: .
+      args:
+        MODULE: ledger-core
+    container_name: ledgerly-ledger-core
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/ledger
+      DB_USER: ledger
+      DB_PASSWORD: ledger
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      LEDGER_OUTBOX_PUBLISHER: kafka
+    ports:
+      - "8080:8080"
+
+  payment-service:
+    build:
+      context: .
+      args:
+        MODULE: payment-service
+    container_name: ledgerly-payment-service
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      ledger-core:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://postgres-payments:5432/payments
+      DB_USER: payments
+      DB_PASSWORD: payments
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      PAYMENTS_LEDGER_BASE_URL: http://ledger-core:8080
+    ports:
+      - "8081:8081"
+
 volumes:
   ledgerly-pgdata:
   ledgerly-payments-pgdata:
