@@ -98,3 +98,44 @@ curl -s localhost:8080/api/v1/transactions/$TX      # shows reversedByTransactio
 
 # every posting also wrote an event to the outbox; the relay logs it, and the lag is a metric
 curl -s localhost:8080/actuator/metrics/ledger.outbox.pending
+
+
+## Run everything
+
+```bash
+docker compose up -d --build     # PostgreSQL x2, Kafka, ledger-core (8080), payment-service (8081)
+```
+
+A payment made through payment-service, and what happens when the ledger reverses it:
+
+```bash
+# two ledger accounts, the first one funded
+A=$(curl -s -X POST localhost:8080/api/v1/accounts -H 'Content-Type: application/json' \
+  -d '{"ownerRef":"aslan","currency":"KZT"}' | jq -r .id)
+B=$(curl -s -X POST localhost:8080/api/v1/accounts -H 'Content-Type: application/json' \
+  -d '{"ownerRef":"dana","currency":"KZT"}' | jq -r .id)
+curl -s -X POST localhost:8080/api/v1/accounts/$A/deposits \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"amountMinor":500000,"currency":"KZT"}' > /dev/null
+
+# a payment: payment-service calls the ledger, using the payment id as the idempotency key
+PAY=$(curl -s -X POST localhost:8081/api/v1/payments \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d "{\"fromAccountId\":\"$A\",\"toAccountId\":\"$B\",\"amountMinor\":100000,\"currency\":\"KZT\"}")
+echo "$PAY" | jq '{id, status, ledgerTransactionId}'
+
+# reverse it in the ledger; a moment later the payment follows through Kafka
+TX=$(echo "$PAY" | jq -r .ledgerTransactionId)
+curl -s -X POST localhost:8080/api/v1/transactions/$TX/reversals \
+  -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"reason":"sent to the wrong account"}' > /dev/null
+sleep 2
+curl -s localhost:8081/api/v1/payments/$(echo "$PAY" | jq -r .id) | jq .status     # "REVERSED"
+
+# the events on the topic, with their headers
+docker exec ledgerly-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic ledger.transaction-posted.v1 \
+  --from-beginning --max-messages 3 --property print.headers=true
+```
+
+Event contracts: [`contracts`](contracts). Design decisions: [`docs/adr`](docs/adr).
