@@ -46,26 +46,48 @@ class PaymentReversalKafkaIT {
 
     @Test
     void aReversalEventFromKafkaReversesThePayment() {
-        UUID ledgerTransaction = UUID.randomUUID();
-        UUID paymentId = completedPayment(ledgerTransaction);
+        UUID paymentId = pendingPayment();
+        complete(paymentId);
 
-        ProducerRecord<String, String> record = new ProducerRecord<>(
-                TOPIC, UUID.randomUUID().toString(), PaymentReversalHandlerIT.reversalOf(ledgerTransaction));
-        record.headers().add("event-id", UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
-        kafka.send(record);
+        send(PaymentReversalHandlerIT.reversalOf(paymentId));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(statusOf(paymentId)).isEqualTo("REVERSED"));
     }
 
-    private UUID completedPayment(UUID ledgerTransaction) {
+    @Test
+    void aReversalThatBeatsThePaymentToCompletedIsRetriedUntilThePaymentCatchesUp() {
+        UUID paymentId = pendingPayment();
+
+        send(PaymentReversalHandlerIT.reversalOf(paymentId));
+
+        // the ledger is ahead of us: for a while the event keeps failing and the payment is left alone
+        await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertThat(statusOf(paymentId)).isEqualTo("PENDING"));
+
+        complete(paymentId);
+
+        await().atMost(Duration.ofSeconds(40)).untilAsserted(() ->
+                assertThat(statusOf(paymentId)).isEqualTo("REVERSED"));
+    }
+
+    private void send(String payload) {
+        ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC, UUID.randomUUID().toString(), payload);
+        record.headers().add("event-id", UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        kafka.send(record);
+    }
+
+    private UUID pendingPayment() {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO payments (id, idempotency_key, request_hash, from_account_id, to_account_id, "
                         + "amount_minor, currency) VALUES (?, ?, ?, ?, ?, 100, 'KZT')",
                 id, "key-" + UUID.randomUUID(), "a".repeat(64), UUID.randomUUID(), UUID.randomUUID());
-        jdbc.update("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = ? WHERE id = ?",
-                ledgerTransaction, id);
         return id;
+    }
+
+    private void complete(UUID paymentId) {
+        jdbc.update("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = ? WHERE id = ?",
+                UUID.randomUUID(), paymentId);
     }
 
     private String statusOf(UUID paymentId) {

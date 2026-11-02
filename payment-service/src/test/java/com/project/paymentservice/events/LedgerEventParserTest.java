@@ -15,6 +15,7 @@ class LedgerEventParserTest {
     private static final Path CONTRACTS = Path.of("..", "contracts");
     private static final UUID TRANSFER_ID = UUID.fromString("7d1f6a0e-2b1c-4c58-9a57-0c6f0d9a1b11");
     private static final UUID REVERSAL_ID = UUID.fromString("2b9c3a54-8f0e-4a39-bb52-6d1e7f3c0a22");
+    private static final UUID PAYMENT_ID = UUID.fromString("5e0d9c6b-1f3a-4f0a-9b8e-2a7c4d1e8f33");
 
     private static String sample(String file) throws IOException {
         return Files.readString(CONTRACTS.resolve(file));
@@ -41,9 +42,29 @@ class LedgerEventParserTest {
     }
 
     @Test
+    void aReversalNamesThePaymentThroughTheReferenceItInheritedFromTheTransfer() throws IOException {
+        LedgerEvent transfer = LedgerEventParser.parse(sample("transaction-posted.v1.transfer.json"));
+        LedgerEvent reversal = LedgerEventParser.parse(sample("transaction-posted.v1.reversal.json"));
+
+        assertThat(transfer.paymentId()).contains(PAYMENT_ID);
+        assertThat(reversal.paymentId()).contains(PAYMENT_ID);
+    }
+
+    @Test
+    void aReferenceThatIsNotAPaymentIdNamesNoPayment() throws IOException {
+        String someoneElses = sample("transaction-posted.v1.reversal.json")
+                .replace("5e0d9c6b-1f3a-4f0a-9b8e-2a7c4d1e8f33", "invoice-42");
+        String none = sample("transaction-posted.v1.reversal.json")
+                .replace("\"reference\": \"5e0d9c6b-1f3a-4f0a-9b8e-2a7c4d1e8f33\",", "");
+
+        assertThat(LedgerEventParser.parse(someoneElses).paymentId()).isEmpty();
+        assertThat(LedgerEventParser.parse(none).paymentId()).isEmpty();
+    }
+
+    @Test
     void ignoresFieldsTheProducerAddsLater() throws IOException {
         String withNewField = sample("transaction-posted.v1.reversal.json")
-                .replace("\"version\": 1,", "\"version\": 1, \"reference\": \"payment-42\", \"extra\": {\"a\": [1, 2]},");
+                .replace("\"version\": 1,", "\"version\": 1, \"extra\": {\"a\": [1, 2]},");
 
         assertThat(LedgerEventParser.parse(withNewField).reversesTransactionId()).isEqualTo(TRANSFER_ID);
     }
