@@ -33,12 +33,13 @@ class LedgerClientTest {
     }
 
     @Test
-    void sendsTheTransferWithThePaymentIdAsTheIdempotencyKey() {
+    void sendsTheTransferWithThePaymentIdAsTheIdempotencyKeyAndTheReference() {
         Payment payment = payment();
         UUID transactionId = UUID.randomUUID();
         server.expect(requestTo("http://ledger/api/v1/transfers"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Idempotency-Key", payment.id().toString()))
+                .andExpect(jsonPath("$.reference").value(payment.id().toString()))
                 .andExpect(jsonPath("$.fromAccountId").value(payment.fromAccountId().toString()))
                 .andExpect(jsonPath("$.toAccountId").value(payment.toAccountId().toString()))
                 .andExpect(jsonPath("$.amountMinor").value(100000))

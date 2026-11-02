@@ -22,7 +22,8 @@ public class LedgerClient implements LedgerGateway {
     @Override
     public LedgerResult transfer(Payment payment) {
         TransferRequest body = new TransferRequest(
-                payment.fromAccountId(), payment.toAccountId(), payment.amountMinor(), payment.currency());
+                payment.fromAccountId(), payment.toAccountId(), payment.amountMinor(), payment.currency(),
+                payment.id().toString());
         try {
             return ledger.post()
                     .uri("/api/v1/transfers")
@@ -40,6 +41,6 @@ public class LedgerClient implements LedgerGateway {
         return StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
     }
 
-    record TransferRequest(UUID fromAccountId, UUID toAccountId, long amountMinor, String currency) {
+    record TransferRequest(UUID fromAccountId, UUID toAccountId, long amountMinor, String currency, String reference) {
     }
 }
