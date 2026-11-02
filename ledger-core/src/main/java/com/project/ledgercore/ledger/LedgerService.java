@@ -39,7 +39,7 @@ public class LedgerService {
     public UUID post(PostingRequest request) {
         try {
             UUID transactionId = ledger.insertTransaction(
-                    request.type(), request.description(), request.reversesTransactionId());
+                    request.type(), request.description(), request.reversesTransactionId(), request.reference());
             // The balance trigger locks each customer account row as its entry is inserted. Inserting in
             // ascending account id keeps that lock order identical in every transaction (ADR 0004).
             List<PostingLine> ordered = request.lines().stream()

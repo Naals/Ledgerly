@@ -25,25 +25,28 @@ class TransactionPostedContractTest {
     private static final UUID REVERSAL_ID = UUID.fromString("2b9c3a54-8f0e-4a39-bb52-6d1e7f3c0a22");
     private static final UUID ALICE = UUID.fromString("0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e01");
     private static final UUID BOB = UUID.fromString("0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e02");
+    /** The id of the payment, in another service, that this transfer pays. */
+    private static final String PAYMENT_ID = "5e0d9c6b-1f3a-4f0a-9b8e-2a7c4d1e8f33";
 
     @Test
     void aTransferEventMatchesTheSample() throws IOException {
         PostingRequest transfer = new PostingRequest(TransactionType.TRANSFER, "Transfer", List.of(
                 PostingLine.debit(ALICE, Money.of(100_000, "KZT")),
-                PostingLine.credit(BOB, Money.of(100_000, "KZT"))));
+                PostingLine.credit(BOB, Money.of(100_000, "KZT"))), null, PAYMENT_ID);
 
         assertThat(asJson(TransactionPostedEvent.of(TRANSFER_ID, transfer)))
                 .isEqualTo(sample("transaction-posted.v1.transfer.json"));
     }
 
     @Test
-    void aReversalEventMatchesTheSample() throws IOException {
+    void aReversalEventMatchesTheSampleAndCarriesTheReferenceOfTheOriginal() throws IOException {
         PostingRequest reversal = new PostingRequest(
                 TransactionType.REVERSAL,
                 "Reversal of " + TRANSFER_ID + ": sent to the wrong account",
                 List.of(PostingLine.credit(ALICE, Money.of(100_000, "KZT")),
                         PostingLine.debit(BOB, Money.of(100_000, "KZT"))),
-                TRANSFER_ID);
+                TRANSFER_ID,
+                PAYMENT_ID);
 
         assertThat(asJson(TransactionPostedEvent.of(REVERSAL_ID, reversal)))
                 .isEqualTo(sample("transaction-posted.v1.reversal.json"));

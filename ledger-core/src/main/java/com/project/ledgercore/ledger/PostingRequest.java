@@ -12,17 +12,25 @@ import java.util.UUID;
  *
  * <p>The request is validated on construction, so an invalid posting can never reach the database:
  * at least two lines, one line per account, no zero amounts, and the lines must sum to zero for every
- * currency. A REVERSAL names the transaction it reverses; no other posting may.
- * (The database enforces the same rules as a second line of defence.)
+ * currency. A REVERSAL names the transaction it reverses; no other posting may. A posting may carry a
+ * {@code reference}: a label chosen by the caller (the id of a payment, say) that travels with the
+ * transaction and into its event. (The database enforces the same rules as a second line of defence.)
  */
 public record PostingRequest(
-        TransactionType type, String description, List<PostingLine> lines, UUID reversesTransactionId) {
+        TransactionType type, String description, List<PostingLine> lines,
+        UUID reversesTransactionId, String reference) {
 
     static final int MAX_DESCRIPTION_LENGTH = 255;
+    static final int MAX_REFERENCE_LENGTH = 64;
 
-    /** A posting that does not reverse anything. */
+    /** A posting that does not reverse anything and has no reference. */
     public PostingRequest(TransactionType type, String description, List<PostingLine> lines) {
-        this(type, description, lines, null);
+        this(type, description, lines, null, null);
+    }
+
+    /** A posting that may reverse something, and has no reference. */
+    public PostingRequest(TransactionType type, String description, List<PostingLine> lines, UUID reversesTransactionId) {
+        this(type, description, lines, reversesTransactionId, null);
     }
 
     public PostingRequest {
@@ -32,6 +40,10 @@ public record PostingRequest(
 
         if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
             throw new IllegalArgumentException("description must be at most " + MAX_DESCRIPTION_LENGTH + " characters");
+        }
+        if (reference != null && (reference.isBlank() || reference.length() > MAX_REFERENCE_LENGTH)) {
+            throw new IllegalArgumentException(
+                    "reference must be between 1 and " + MAX_REFERENCE_LENGTH + " characters and not blank");
         }
         if (lines.size() < 2) {
             throw new IllegalArgumentException("a ledger transaction needs at least two lines");

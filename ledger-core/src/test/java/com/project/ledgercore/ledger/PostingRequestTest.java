@@ -142,4 +142,29 @@ class PostingRequestTest {
 
         assertThat(request.reversesTransactionId()).isEqualTo(original);
     }
+
+    private PostingRequest withReference(String reference) {
+        return new PostingRequest(TransactionType.TRANSFER, "rent", List.of(
+                PostingLine.debit(customer, Money.of(1_000, "KZT")),
+                PostingLine.credit(cashInBank, Money.of(1_000, "KZT"))), null, reference);
+    }
+
+    @Test
+    void aPostingMayCarryAReference() {
+        assertThat(withReference("payment-42").reference()).isEqualTo("payment-42");
+        assertThat(withReference(null).reference()).isNull();
+        assertThat(new PostingRequest(TransactionType.TRANSFER, "rent", List.of(
+                PostingLine.debit(customer, Money.of(1_000, "KZT")),
+                PostingLine.credit(cashInBank, Money.of(1_000, "KZT")))).reference()).isNull();
+    }
+
+    @Test
+    void aReferenceMustBeNonBlankAndFitTheColumn() {
+        assertThatCode(() -> withReference("x".repeat(64))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> withReference("   ")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> withReference("")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> withReference("x".repeat(65)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reference");
+    }
 }

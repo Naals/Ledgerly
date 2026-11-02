@@ -53,7 +53,8 @@ class TransactionPostedEventTest {
         JsonNode json = new ObjectMapper().valueToTree(TransactionPostedEvent.of(transactionId, transfer()));
 
         assertThat(fieldNames(json)).containsExactlyInAnyOrder(
-                "version", "transactionId", "type", "description", "reversesTransactionId", "entries");
+                "version", "transactionId", "type", "description", "reference", "reversesTransactionId", "entries");
+        assertThat(json.get("reference").isNull()).isTrue();
         assertThat(json.get("version").asInt()).isEqualTo(1);
         assertThat(json.get("transactionId").asText()).isEqualTo(transactionId.toString());
         assertThat(json.get("reversesTransactionId").isNull()).isTrue();
@@ -69,5 +70,15 @@ class TransactionPostedEventTest {
         List<String> names = new ArrayList<>();
         node.fieldNames().forEachRemaining(names::add);
         return names;
+    }
+
+    @Test
+    void carriesTheReferenceOfThePosting() {
+        PostingRequest withReference = new PostingRequest(TransactionType.TRANSFER, "rent", List.of(
+                PostingLine.debit(from, Money.of(100, "KZT")),
+                PostingLine.credit(to, Money.of(100, "KZT"))), null, "payment-42");
+
+        assertThat(TransactionPostedEvent.of(transactionId, withReference).reference()).isEqualTo("payment-42");
+        assertThat(TransactionPostedEvent.of(transactionId, transfer()).reference()).isNull();
     }
 }
