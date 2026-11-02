@@ -71,7 +71,8 @@ public class ReversalService {
                 .map(entry -> new PostingLine(entry.accountId(), entry.amount().negate()))
                 .toList();
         return ledger.post(new PostingRequest(
-                TransactionType.REVERSAL, description(transactionId, cleanReason), opposite, transactionId));
+                TransactionType.REVERSAL, description(transactionId, cleanReason), opposite, transactionId,
+                original.reference()));
     }
 
     private static String description(UUID transactionId, String reason) {
