@@ -93,7 +93,7 @@ public class LedgerRepository {
     }
 
     public Optional<TransactionView> findTransaction(UUID transactionId) {
-        return jdbc.sql("SELECT t.id, t.type, t.description, t.created_at, t.reverses_transaction_id, "
+        return jdbc.sql("SELECT t.id, t.type, t.description, t.created_at, t.reverses_transaction_id, t.reference, "
                         + "(SELECT r.id FROM ledger_transactions r WHERE r.reverses_transaction_id = t.id) AS reversed_by "
                         + "FROM ledger_transactions t WHERE t.id = :id")
                 .param("id", transactionId)
@@ -104,12 +104,13 @@ public class LedgerRepository {
                         rs.getObject("created_at", OffsetDateTime.class),
                         List.of(),
                         rs.getObject("reverses_transaction_id", UUID.class),
-                        rs.getObject("reversed_by", UUID.class)))
+                        rs.getObject("reversed_by", UUID.class),
+                        rs.getString("reference")))
                 .optional()
                 .map(header -> new TransactionView(
                         header.id(), header.type(), header.description(), header.createdAt(),
                         findTransactionEntries(transactionId),
-                        header.reversesTransactionId(), header.reversedByTransactionId()));
+                        header.reversesTransactionId(), header.reversedByTransactionId(), header.reference()));
     }
 
     private List<TransactionEntryView> findTransactionEntries(UUID transactionId) {

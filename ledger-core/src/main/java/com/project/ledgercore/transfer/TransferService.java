@@ -32,13 +32,19 @@ public class TransferService {
         this.ledger = ledger;
     }
 
-    /**
-     * Moves money between two customer accounts as one balanced ledger transaction.
-     * Both accounts are locked in a fixed order (no deadlocks), then the source balance is checked
-     * (no overdraft), then the posting is written. Returns the ledger transaction id.
-     */
+    /** A transfer without a reference. */
     @Transactional
     public UUID transfer(UUID fromAccountId, UUID toAccountId, Money amount) {
+        return transfer(fromAccountId, toAccountId, amount, null);
+    }
+
+    /**
+     * Moves money between two customer accounts as one balanced ledger transaction, labelled with the caller's
+     * {@code reference} (may be null). Both accounts are locked in a fixed order (no deadlocks), then the source's
+     * available balance is checked (no overdraft), then the posting is written. Returns the ledger transaction id.
+     */
+    @Transactional
+    public UUID transfer(UUID fromAccountId, UUID toAccountId, Money amount, String reference) {
         requirePositive(amount);
         if (fromAccountId.equals(toAccountId)) {
             throw new BadRequestException("same-account", "Cannot transfer from an account to itself");
@@ -55,6 +61,6 @@ public class TransferService {
 
         return ledger.post(new PostingRequest(TransactionType.TRANSFER, "Transfer", List.of(
                 PostingLine.debit(from.id(), amount),
-                PostingLine.credit(to.id(), amount))));
+                PostingLine.credit(to.id(), amount)), null, reference));
     }
 }
