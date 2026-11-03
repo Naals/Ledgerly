@@ -9,6 +9,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
+import com.project.paymentservice.payment.CaptureMode;
 import com.project.paymentservice.payment.Payment;
 import com.project.paymentservice.payment.PaymentStatus;
 import java.io.IOException;
@@ -82,6 +83,6 @@ class LedgerClientTest {
     private static Payment payment() {
         OffsetDateTime now = OffsetDateTime.now();
         return new Payment(UUID.randomUUID(), "key-1", "hash", UUID.randomUUID(), UUID.randomUUID(),
-                100_000, "KZT", PaymentStatus.PENDING, null, null, 0, now, now);
+                100_000, "KZT", CaptureMode.AUTOMATIC, PaymentStatus.PENDING, null, null, null, null, 0, now, now);
     }
 }

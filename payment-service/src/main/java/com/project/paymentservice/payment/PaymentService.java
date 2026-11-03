@@ -5,9 +5,7 @@ import com.project.paymentservice.common.RequestFingerprint;
 import com.project.paymentservice.ledger.LedgerGateway;
 import com.project.paymentservice.ledger.LedgerResult;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -72,14 +70,18 @@ public class PaymentService {
         if (command.fromAccountId().equals(command.toAccountId())) {
             throw new BadRequestException("same-account", "A payment needs two different accounts");
         }
-        String hash = RequestFingerprint.of(
+        List<String> parts = new ArrayList<>(List.of(
                 command.fromAccountId().toString(),
                 command.toAccountId().toString(),
                 Long.toString(command.amountMinor()),
-                command.currency());
+                command.currency()));
+        if (command.captureMode() == CaptureMode.MANUAL) {
+            parts.add(CaptureMode.MANUAL.name());
+        }
+        String hash = RequestFingerprint.of(parts.toArray(String[]::new));
 
         Optional<UUID> created = payments.insertIfNew(idempotencyKey, hash, command.fromAccountId(),
-                command.toAccountId(), command.amountMinor(), command.currency());
+                command.toAccountId(), command.amountMinor(), command.currency(), command.captureMode());
         if (created.isPresent()) {
             return new CreatedPayment(get(created.get()), false);
         }
