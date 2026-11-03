@@ -139,3 +139,10 @@ docker exec ledgerly-kafka /opt/kafka/bin/kafka-console-consumer.sh \
 ```
 
 Event contracts: [`contracts`](contracts). Design decisions: [`docs/adr`](docs/adr).
+
+- `POST /api/v1/accounts/{id}/holds`   reserve funds for a payment to another account (Idempotency-Key)
+- `GET  /api/v1/holds/{id}`            read a hold
+- `POST /api/v1/holds/{id}/capture`    move the held money (all, or `{"amountMinor": n}`) (Idempotency-Key)
+- `POST /api/v1/holds/{id}/release`    give the funds back
+- `GET  /api/v1/accounts/{id}/balance` now also returns `heldMinor` and `availableMinor`
+- `POST /api/v1/transfers`             accepts an optional `reference`, echoed on transactions and events
