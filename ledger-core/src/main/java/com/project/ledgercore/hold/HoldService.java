@@ -4,6 +4,7 @@ import static com.project.ledgercore.account.AccountRules.requireCustomerAccount
 import static com.project.ledgercore.account.AccountRules.requirePositive;
 import static com.project.ledgercore.account.AccountRules.requireUsable;
 
+import com.project.ledgercore.common.LockOrder;
 import com.project.ledgercore.account.AccountLocker;
 import com.project.ledgercore.ledger.LedgerService;
 import com.project.ledgercore.ledger.PostingLine;
@@ -16,6 +17,7 @@ import com.project.ledgercore.account.DebitGuard;
 import com.project.ledgercore.common.BadRequestException;
 import com.project.ledgercore.common.Money;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.UUID;
 import java.util.List;
 import java.util.Map;
@@ -125,5 +127,22 @@ public class HoldService {
     @Transactional(readOnly = true)
     public Hold get(UUID holdId) {
         return holds.findById(holdId).orElseThrow(() -> new HoldNotFoundException(holdId));
+    }
+
+    /**
+     * Expires up to {@code limit} holds whose time has run out and frees their funds. Returns how many it expired.
+     *
+     * <p>Hold rows are taken with SKIP LOCKED, so two sweeps never wait for each other; and the holds are finished in
+     * ascending account id, so two sweeps that share accounts cannot deadlock on those rows (ADR 0014).
+     */
+    @Transactional
+    public int expireDue(int limit) {
+        List<Hold> due = holds.lockDue(limit).stream()
+                .sorted(Comparator.comparing(Hold::accountId, LockOrder.BY_ID))
+                .toList();
+        for (Hold hold : due) {
+            holds.finish(hold.id(), HoldStatus.EXPIRED);
+        }
+        return due.size();
     }
 }

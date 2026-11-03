@@ -33,6 +33,11 @@ management:
         enabled: true
 
 ledger:
+  holds:
+    expiry:
+      enabled: true
+      interval-ms: 30000
+      batch-size: 100
   outbox:
     relay:
       enabled: true

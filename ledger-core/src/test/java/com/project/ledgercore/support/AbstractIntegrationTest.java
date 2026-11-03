@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Import;
  * Base class for integration tests: full application context on top of a real PostgreSQL.
  * The outbox relay is off, so tests decide when events are delivered.
  */
-@SpringBootTest(properties = "ledger.outbox.relay.enabled=false")
+@SpringBootTest(properties = {"ledger.outbox.relay.enabled=false", "ledger.holds.expiry.enabled=false"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 public abstract class AbstractIntegrationTest {
