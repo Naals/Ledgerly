@@ -23,6 +23,8 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 payments:
+  authorization:
+    ttl-seconds: 86400        # how long the ledger holds the money before an uncaptured authorization expires
   ledger:
     base-url: http://localhost:8080
     timeout-ms: 3000

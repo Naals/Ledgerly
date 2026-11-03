@@ -14,10 +14,11 @@ class LedgerClientConfiguration {
     @Bean
     LedgerGateway ledgerGateway(RestClient.Builder builder,
                                 @Value("${payments.ledger.base-url}") String baseUrl,
-                                @Value("${payments.ledger.timeout-ms:3000}") long timeoutMs) {
+                                @Value("${payments.ledger.timeout-ms:3000}") long timeoutMs,
+                                @Value("${payments.authorization.ttl-seconds:86400}") long holdTtlSeconds) {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
                 HttpClient.newBuilder().connectTimeout(Duration.ofMillis(timeoutMs)).build());
         requestFactory.setReadTimeout(Duration.ofMillis(timeoutMs));
-        return new LedgerClient(builder.baseUrl(baseUrl).requestFactory(requestFactory).build());
+        return new LedgerClient(builder.baseUrl(baseUrl).requestFactory(requestFactory).build(), holdTtlSeconds);
     }
 }
