@@ -23,8 +23,15 @@ class ReversalActionTest {
     }
 
     @Test
-    void aFailedPaymentHasNothingToReverse() {
-        assertThat(ReversalAction.forPayment(PaymentStatus.FAILED)).isEqualTo(ReversalAction.NOT_REVERSIBLE);
+    void anAuthorizedPaymentAlsoWaitsBecauseItsCaptureMayNotBeRecordedYet() {
+        assertThat(ReversalAction.forPayment(PaymentStatus.AUTHORIZED)).isEqualTo(ReversalAction.WAIT_FOR_PAYMENT);
+    }
+
+    @Test
+    void aPaymentThatNeverMovedMoneyHasNothingToReverse() {
+        for (PaymentStatus status : new PaymentStatus[] {PaymentStatus.FAILED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED}) {
+            assertThat(ReversalAction.forPayment(status)).as(status.name()).isEqualTo(ReversalAction.NOT_REVERSIBLE);
+        }
     }
 
     @Test

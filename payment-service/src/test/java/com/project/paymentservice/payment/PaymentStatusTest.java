@@ -2,49 +2,57 @@ package com.project.paymentservice.payment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.EnumSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class PaymentStatusTest {
 
     @Test
-    void aPendingPaymentCanCompleteOrFail() {
-        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.COMPLETED)).isTrue();
-        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.FAILED)).isTrue();
-        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.REVERSED)).isFalse();
+    void aOneStepPaymentGoesStraightFromPendingToCompletedOrFailed() {
+        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.COMPLETED, CaptureMode.AUTOMATIC)).isTrue();
+        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.FAILED, CaptureMode.AUTOMATIC)).isTrue();
+        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.AUTHORIZED, CaptureMode.AUTOMATIC)).isFalse();
     }
 
     @Test
-    void aCompletedPaymentCanOnlyBeReversed() {
-        assertThat(PaymentStatus.COMPLETED.canMoveTo(PaymentStatus.REVERSED)).isTrue();
-        assertThat(PaymentStatus.COMPLETED.canMoveTo(PaymentStatus.PENDING)).isFalse();
-        assertThat(PaymentStatus.COMPLETED.canMoveTo(PaymentStatus.FAILED)).isFalse();
+    void aTwoStepPaymentMustBeAuthorizedBeforeItCanBeCompleted() {
+        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.AUTHORIZED, CaptureMode.MANUAL)).isTrue();
+        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.FAILED, CaptureMode.MANUAL)).isTrue();
+        assertThat(PaymentStatus.PENDING.canMoveTo(PaymentStatus.COMPLETED, CaptureMode.MANUAL)).isFalse();
     }
 
     @Test
-    void failedAndReversedPaymentsAreFinal() {
+    void anAuthorizationEndsInExactlyOneOfThreeWays() {
         for (PaymentStatus target : PaymentStatus.values()) {
-            assertThat(PaymentStatus.FAILED.canMoveTo(target)).isFalse();
-            assertThat(PaymentStatus.REVERSED.canMoveTo(target)).isFalse();
+            boolean expected = Set.of(PaymentStatus.COMPLETED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED)
+                    .contains(target);
+            assertThat(PaymentStatus.AUTHORIZED.canMoveTo(target, CaptureMode.MANUAL)).as("AUTHORIZED -> " + target)
+                    .isEqualTo(expected);
         }
     }
 
     @Test
-    void noStatusMovesToItself() {
-        for (PaymentStatus status : PaymentStatus.values()) {
-            assertThat(status.canMoveTo(status)).isFalse();
-        }
-    }
-
-    @Test
-    void exactlyThreeMovesExist() {
-        int moves = 0;
-        for (PaymentStatus from : PaymentStatus.values()) {
-            for (PaymentStatus to : PaymentStatus.values()) {
-                if (from.canMoveTo(to)) {
-                    moves++;
-                }
+    void onlyACompletedPaymentCanBeReversedAndNothingLeavesTheOtherEndStates() {
+        assertThat(PaymentStatus.COMPLETED.canMoveTo(PaymentStatus.REVERSED)).isTrue();
+        for (PaymentStatus end : EnumSet.of(PaymentStatus.FAILED, PaymentStatus.CANCELLED,
+                PaymentStatus.EXPIRED, PaymentStatus.REVERSED)) {
+            for (PaymentStatus target : PaymentStatus.values()) {
+                assertThat(end.canMoveTo(target)).as(end + " -> " + target).isFalse();
             }
         }
-        assertThat(moves).isEqualTo(3);
+    }
+
+    @Test
+    void onlyATwoStepPaymentIsEverAuthorizedCancelledOrExpired() {
+        for (PaymentStatus status : EnumSet.of(PaymentStatus.AUTHORIZED, PaymentStatus.CANCELLED, PaymentStatus.EXPIRED)) {
+            assertThat(status.isPossibleFor(CaptureMode.MANUAL)).isTrue();
+            assertThat(status.isPossibleFor(CaptureMode.AUTOMATIC)).isFalse();
+        }
+        for (PaymentStatus status : EnumSet.of(PaymentStatus.PENDING, PaymentStatus.COMPLETED,
+                PaymentStatus.FAILED, PaymentStatus.REVERSED)) {
+            assertThat(status.isPossibleFor(CaptureMode.AUTOMATIC)).isTrue();
+            assertThat(status.isPossibleFor(CaptureMode.MANUAL)).isTrue();
+        }
     }
 }

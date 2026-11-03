@@ -47,21 +47,146 @@ class PaymentSchemaIT extends AbstractIntegrationTest {
         assertThatThrownBy(() -> insertPayment(key)).hasStackTraceContaining("idempotency_key");
     }
 
-    /** The database and PaymentStatus.canMoveTo must agree about every pair of statuses. */
+
+    /** The database and PaymentStatus.canMoveTo must agree about every move, in both capture modes. */
     @Test
     void aPaymentMovesOnlyAlongTheStateMachine() {
-        for (PaymentStatus source : PaymentStatus.values()) {
-            for (PaymentStatus target : PaymentStatus.values()) {
-                if (source == target) {
+        for (CaptureMode mode : CaptureMode.values()) {
+            for (PaymentStatus source : PaymentStatus.values()) {
+                if (!source.isPossibleFor(mode)) {
                     continue;
                 }
-                boolean databaseAllowsIt = moveSucceeds(source, target);
-
-                assertThat(databaseAllowsIt)
-                        .as(source + " -> " + target)
-                        .isEqualTo(source.canMoveTo(target));
+                for (PaymentStatus target : PaymentStatus.values()) {
+                    if (source == target) {
+                        continue;
+                    }
+                    assertThat(moveSucceeds(mode, source, target))
+                            .as(mode + ": " + source + " -> " + target)
+                            .isEqualTo(source.canMoveTo(target, mode));
+                }
             }
         }
+    }
+
+    @Test
+    void aTwoStepPaymentIsAuthorizedWithItsHoldAndItsExpiryTogether() {
+        UUID id = insert("key-" + UUID.randomUUID(), from, to, 100, "KZT", CaptureMode.MANUAL);
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE payments SET status = 'AUTHORIZED' WHERE id = ?", id))
+                .hasStackTraceContaining("ck_payment_manual_has_hold");
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE payments SET ledger_hold_id = ? WHERE id = ?", UUID.randomUUID(), id))
+                .hasStackTraceContaining("ck_payment_hold_has_expiry");
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = ? WHERE id = ?",
+                UUID.randomUUID(), id))
+                .hasStackTraceContaining("invalid_payment_transition");
+    }
+
+    @Test
+    void onlyATwoStepPaymentHasAHoldOrIsAuthorized() {
+        UUID id = insert("key-" + UUID.randomUUID(), from, to, 100, "KZT", CaptureMode.AUTOMATIC);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE payments SET ledger_hold_id = ?, authorization_expires_at = now() WHERE id = ?",
+                UUID.randomUUID(), id))
+                .hasStackTraceContaining("ck_payment_hold_only_if_manual");
+        assertThatThrownBy(() -> jdbc.update("UPDATE payments SET status = 'AUTHORIZED' WHERE id = ?", id))
+                .hasStackTraceContaining("invalid_payment_transition");
+    }
+
+    @Test
+    void theModeAndTheHoldNeverChange() {
+        UUID id = paymentIn(CaptureMode.MANUAL, PaymentStatus.AUTHORIZED);
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE payments SET capture_mode = 'AUTOMATIC' WHERE id = ?", id))
+                .hasStackTraceContaining("payment_immutable");
+        assertThatThrownBy(() -> jdbc.update("UPDATE payments SET ledger_hold_id = ? WHERE id = ?", UUID.randomUUID(), id))
+                .hasStackTraceContaining("payment_hold_immutable");
+        assertThatThrownBy(() -> jdbc.update(
+                "UPDATE payments SET authorization_expires_at = now() + interval '9 days' WHERE id = ?", id))
+                .hasStackTraceContaining("payment_hold_immutable");
+    }
+
+    @Test
+    void aLedgerHoldBelongsToOnePayment() {
+        UUID hold = UUID.randomUUID();
+        UUID first = insert("key-" + UUID.randomUUID(), from, to, 100, "KZT", CaptureMode.MANUAL);
+        UUID second = insert("key-" + UUID.randomUUID(), from, to, 100, "KZT", CaptureMode.MANUAL);
+        jdbc.update("UPDATE payments SET status = 'AUTHORIZED', ledger_hold_id = ?, "
+                + "authorization_expires_at = now() + interval '1 hour' WHERE id = ?", hold, first);
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE payments SET status = 'AUTHORIZED', ledger_hold_id = ?, "
+                + "authorization_expires_at = now() + interval '1 hour' WHERE id = ?", hold, second))
+                .hasStackTraceContaining("uq_payments_ledger_hold");
+    }
+
+    private boolean moveSucceeds(CaptureMode mode, PaymentStatus source, PaymentStatus target) {
+        UUID id = paymentIn(mode, source);
+        try {
+            switch (target) {
+                case PENDING -> jdbc.update("UPDATE payments SET status = 'PENDING', "
+                        + "ledger_transaction_id = NULL, failure_code = NULL WHERE id = ?", id);
+                case AUTHORIZED -> jdbc.update("UPDATE payments SET status = 'AUTHORIZED', "
+                        + "ledger_hold_id = COALESCE(ledger_hold_id, ?), "
+                        + "authorization_expires_at = COALESCE(authorization_expires_at, now() + interval '1 hour'), "
+                        + "ledger_transaction_id = NULL, failure_code = NULL WHERE id = ?", UUID.randomUUID(), id);
+                case COMPLETED -> jdbc.update("UPDATE payments SET status = 'COMPLETED', "
+                        + "ledger_transaction_id = COALESCE(ledger_transaction_id, ?), failure_code = NULL "
+                        + "WHERE id = ?", UUID.randomUUID(), id);
+                case FAILED -> jdbc.update("UPDATE payments SET status = 'FAILED', "
+                        + "failure_code = 'test', ledger_transaction_id = NULL WHERE id = ?", id);
+                case CANCELLED, EXPIRED -> jdbc.update("UPDATE payments SET status = ?, "
+                        + "ledger_transaction_id = NULL, failure_code = NULL WHERE id = ?", target.name(), id);
+                case REVERSED -> jdbc.update("UPDATE payments SET status = 'REVERSED', "
+                        + "ledger_transaction_id = COALESCE(ledger_transaction_id, ?), failure_code = NULL "
+                        + "WHERE id = ?", UUID.randomUUID(), id);
+            }
+            return true;
+        } catch (DataAccessException e) {
+            return false;
+        }
+    }
+
+    private UUID paymentIn(CaptureMode mode, PaymentStatus status) {
+        UUID id = insert("key-" + UUID.randomUUID(), from, to, 100, "KZT", mode);
+        switch (status) {
+            case PENDING -> {
+            }
+            case FAILED -> jdbc.update("UPDATE payments SET status = 'FAILED', failure_code = 'seed' WHERE id = ?", id);
+            case AUTHORIZED -> authorize(id);
+            case CANCELLED, EXPIRED -> {
+                authorize(id);
+                jdbc.update("UPDATE payments SET status = ? WHERE id = ?", status.name(), id);
+            }
+            case COMPLETED -> complete(id, mode);
+            case REVERSED -> {
+                complete(id, mode);
+                jdbc.update("UPDATE payments SET status = 'REVERSED' WHERE id = ?", id);
+            }
+        }
+        return id;
+    }
+
+    private void authorize(UUID id) {
+        jdbc.update("UPDATE payments SET status = 'AUTHORIZED', ledger_hold_id = ?, "
+                + "authorization_expires_at = now() + interval '1 hour' WHERE id = ?", UUID.randomUUID(), id);
+    }
+
+    private void complete(UUID id, CaptureMode mode) {
+        if (mode == CaptureMode.MANUAL) {
+            authorize(id);
+        }
+        jdbc.update("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = ? WHERE id = ?",
+                UUID.randomUUID(), id);
+    }
+
+    private UUID insert(String key, UUID fromAccount, UUID toAccount, long amount, String currency, CaptureMode mode) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO payments (id, idempotency_key, request_hash, from_account_id, to_account_id, "
+                        + "amount_minor, currency, capture_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                id, key, "a".repeat(64), fromAccount, toAccount, amount, currency, mode.name());
+        return id;
     }
 
     @Test
