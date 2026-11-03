@@ -64,7 +64,7 @@ public class AccountController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime at) {
         if (at == null) {
-            return BalanceResponse.from(id, accounts.balanceOf(id));
+            return BalanceResponse.from(id, accounts.balanceSummaryOf(id));
         }
         return BalanceResponse.from(id, accounts.balanceAt(id, at), at);
     }

@@ -7,8 +7,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The balance check every debit of a customer account must make (see ADR 0003):
- * lock the account row first, then call this, then post.
+ * The funds check every debit of a customer account must make (see ADR 0003): lock the account row first,
+ * then call this, then post. It checks the AVAILABLE balance (balance minus holds), because held funds are
+ * promised to someone else (ADR 0014).
  */
 @Service
 public class DebitGuard {
@@ -20,15 +21,16 @@ public class DebitGuard {
     }
 
     /**
-     * Fails if debiting {@code amount} from {@code account} would overdraw it.
+     * Fails if debiting {@code amount} from {@code account} would spend funds that are held, or overdraw it.
      * The caller must already hold the account's row lock, otherwise two debits could both pass this check.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void requireFunds(Account account, Money amount) {
-        Money balance = ledger.balanceOf(account.id())
-                .orElseThrow(() -> new AccountNotFoundException(account.id()));
-        if (balance.minus(amount).isNegative()) {
-            throw new InsufficientFundsException(account.id(), balance, amount);
+        Money available = ledger.balanceSummaryOf(account.id())
+                .orElseThrow(() -> new AccountNotFoundException(account.id()))
+                .available();
+        if (available.minus(amount).isNegative()) {
+            throw new InsufficientFundsException(account.id(), available, amount);
         }
     }
 }

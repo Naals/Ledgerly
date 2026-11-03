@@ -59,6 +59,23 @@ public class LedgerRepository {
                 .optional();
     }
 
+    /** The balance, the held amount and (derived) the available amount of an account. Empty if it does not exist. */
+    public Optional<BalanceSummary> balanceSummary(UUID accountId) {
+        return jdbc.sql("SELECT a.currency, "
+                        + "CASE WHEN a.allow_negative "
+                        + "THEN (SELECT COALESCE(SUM(e.amount), 0) FROM ledger_entries e WHERE e.account_id = a.id) "
+                        + "ELSE a.balance END AS balance, a.held "
+                        + "FROM accounts a WHERE a.id = :accountId")
+                .param("accountId", accountId)
+                .query((rs, rowNum) -> {
+                    Currency currency = Currency.getInstance(rs.getString("currency"));
+                    return new BalanceSummary(
+                            new Money(rs.getLong("balance"), currency),
+                            new Money(rs.getLong("held"), currency));
+                })
+                .optional();
+    }
+
     /**
      * A customer account's entries, newest first, by the account's own entry number.
      * {@code beforeSequence} is an exclusive keyset cursor (null = first page).

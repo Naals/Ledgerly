@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.project.ledgercore.common.Money;
+import com.project.ledgercore.ledger.BalanceSummary;
 import com.project.ledgercore.ledger.EntryPage;
 import com.project.ledgercore.ledger.LedgerService;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,10 @@ public class AccountService {
 
     public Money balanceOf(UUID id) {
         return ledger.balanceOf(id).orElseThrow(() -> new AccountNotFoundException(id));
+    }
+
+    public BalanceSummary balanceSummaryOf(UUID id) {
+        return ledger.balanceSummaryOf(id).orElseThrow(() -> new AccountNotFoundException(id));
     }
 
     public Account openCustomerAccount(String ownerRef, Currency currency) {

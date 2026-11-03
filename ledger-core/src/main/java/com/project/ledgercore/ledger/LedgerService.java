@@ -71,6 +71,11 @@ public class LedgerService {
     }
 
     @Transactional(readOnly = true)
+    public Optional<BalanceSummary> balanceSummaryOf(UUID accountId) {
+        return ledger.balanceSummary(accountId);
+    }
+
+    @Transactional(readOnly = true)
     public Optional<Money> balanceAt(UUID accountId, OffsetDateTime at) {
         return ledger.balanceAt(accountId, at);
     }
