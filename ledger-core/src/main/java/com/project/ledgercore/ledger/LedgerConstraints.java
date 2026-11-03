@@ -3,10 +3,13 @@ package com.project.ledgercore.ledger;
 /** Names of database constraints that the application translates into business errors. */
 final class LedgerConstraints {
 
-    /** CHECK (allow_negative OR balance >= 0) on accounts, added in V7. */
-    static final String NON_NEGATIVE_BALANCE = "ck_accounts_balance_non_negative";
+    /**
+     * CHECK (allow_negative OR balance >= held) on accounts, added in V15. It replaced V7's
+     * {@code balance >= 0}: a customer's AVAILABLE balance (balance minus holds) may never go negative.
+     */
+    static final String NON_NEGATIVE_AVAILABLE = "ck_accounts_available_non_negative";
 
-    /** Marker in the message the entry trigger raises for a FROZEN or CLOSED account (V10). */
+    /** Marker in the message the entry and hold triggers raise for a FROZEN or CLOSED account (V10, V15). */
     static final String ACCOUNT_NOT_ACTIVE = "account_not_active";
 
     /** CHECK (status <> 'CLOSED' OR balance = 0) on accounts, added in V10. */
@@ -20,7 +23,7 @@ final class LedgerConstraints {
 
     /** True if the error, or any of its causes, reports a violation of the no-overdraft constraint. */
     static boolean isOverdraftViolation(Throwable error) {
-        return reports(error, NON_NEGATIVE_BALANCE);
+        return reports(error, NON_NEGATIVE_AVAILABLE);
     }
 
     /** True if the error says an entry was refused because its account is frozen or closed. */

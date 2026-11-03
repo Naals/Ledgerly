@@ -49,4 +49,12 @@ public class LedgerFixtures {
         jdbc.update("INSERT INTO ledger_transactions (id, type, reverses_transaction_id) VALUES (?, 'REVERSAL', ?)",
                 transactionId, reversesTransactionId);
     }
+
+    /** Inserts an ACTIVE hold that expires {@code expiresInSeconds} from now (negative: already past due). */
+    public UUID insertHold(UUID accountId, UUID toAccountId, long amount, String currency, long expiresInSeconds) {
+        return jdbc.queryForObject(
+                "INSERT INTO holds (account_id, to_account_id, amount_minor, currency, expires_at) "
+                        + "VALUES (?, ?, ?, ?, clock_timestamp() + (? * interval '1 second')) RETURNING id",
+                UUID.class, accountId, toAccountId, amount, currency, expiresInSeconds);
+    }
 }

@@ -60,4 +60,17 @@ public class LedgerInvariants {
                 .as("accounts whose entry numbers, running balances or posting times are inconsistent")
                 .isEmpty();
     }
+
+    /** Every account's cached held amount equals the sum of its ACTIVE holds. */
+    public void assertHeldMatchesActiveHolds() {
+        List<String> drifting = jdbc.queryForList("""
+                SELECT a.id::text FROM accounts a
+                 WHERE a.held <> COALESCE(
+                           (SELECT SUM(h.amount_minor) FROM holds h WHERE h.account_id = a.id AND h.status = 'ACTIVE'), 0)
+                """, String.class);
+
+        assertThat(drifting)
+                .as("accounts whose cached held amount differs from the sum of their ACTIVE holds")
+                .isEmpty();
+    }
 }
