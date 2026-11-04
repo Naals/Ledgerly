@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "paymentId": "9b2d4c61-0e7a-4b83-a6f5-1d3c8e5f7a22",
+  "sequence": 1,
+  "status": "FAILED",
+  "previousStatus": "PENDING",
+  "captureMode": "AUTOMATIC",
+  "fromAccountId": "0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e01",
+  "toAccountId": "0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e02",
+  "amountMinor": 250000,
+  "currency": "KZT",
+  "failureCode": "insufficient-funds",
+  "ledgerTransactionId": null,
+  "authorizationExpiresAt": null,
+  "occurredAt": "2026-11-03T09:32:00.000001Z"
+}
