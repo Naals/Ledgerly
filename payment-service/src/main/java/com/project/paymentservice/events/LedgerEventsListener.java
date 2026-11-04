@@ -8,15 +8,17 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/** Reads the ledger's TransactionPosted events from Kafka. */
+/** Reads the ledger's TransactionPosted events from Kafka and hands them to the handlers that care. */
 @Component
 @ConditionalOnProperty(name = "payments.kafka.enabled", havingValue = "true", matchIfMissing = true)
 public class LedgerEventsListener {
 
-    private final PaymentReversalHandler handler;
+    private final PaymentReversalHandler reversals;
+    private final PaymentCaptureHandler captures;
 
-    public LedgerEventsListener(PaymentReversalHandler handler) {
-        this.handler = handler;
+    public LedgerEventsListener(PaymentReversalHandler reversals, PaymentCaptureHandler captures) {
+        this.reversals = reversals;
+        this.captures = captures;
     }
 
     @KafkaListener(topics = "${payments.kafka.ledger-topic}", groupId = "${spring.kafka.consumer.group-id}")
@@ -26,6 +28,8 @@ public class LedgerEventsListener {
             throw new IllegalArgumentException("Ledger event without an event-id header at offset " + record.offset());
         }
         UUID eventId = UUID.fromString(new String(header.value(), StandardCharsets.UTF_8));
-        handler.handle(eventId, record.value());
+        // each handler ignores the event types it does not own
+        reversals.handle(eventId, record.value());
+        captures.handle(eventId, record.value());
     }
 }
