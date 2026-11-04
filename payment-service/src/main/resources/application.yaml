@@ -23,6 +23,10 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 payments:
+  reconciliation:
+    enabled: true
+    poll-interval-ms: 60000
+    batch-size: 50
   authorization:
     ttl-seconds: 86400        # how long the ledger holds the money before an uncaptured authorization expires
   ledger:
