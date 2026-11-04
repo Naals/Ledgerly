@@ -11,5 +11,6 @@ public record CreatePaymentRequest(
         @NotNull UUID toAccountId,
         @Positive long amountMinor,
         @NotBlank @Pattern(regexp = "[A-Z]{3}", message = "must be a three-letter ISO 4217 code in upper case")
-        String currency) {
+        String currency,
+        CaptureMode captureMode) {
 }

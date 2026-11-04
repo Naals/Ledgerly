@@ -32,7 +32,8 @@ public class PaymentController {
             @Valid @RequestBody CreatePaymentRequest request) {
         String key = IdempotencyKeys.require(idempotencyKey);
         CreatedPayment created = payments.create(key, new CreatePayment(
-                request.fromAccountId(), request.toAccountId(), request.amountMinor(), request.currency()));
+                request.fromAccountId(), request.toAccountId(), request.amountMinor(), request.currency(),
+                request.captureMode()));
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -47,5 +48,17 @@ public class PaymentController {
     @GetMapping("/{id}")
     public PaymentResponse get(@PathVariable UUID id) {
         return PaymentResponse.from(payments.get(id));
+    }
+
+    /** Captures an authorized payment. Capturing a payment that is already completed changes nothing. */
+    @PostMapping("/{id}/capture")
+    public PaymentResponse capture(@PathVariable UUID id) {
+        return PaymentResponse.from(payments.capture(id));
+    }
+
+    /** Cancels an authorized payment. Cancelling a payment that is already cancelled or expired changes nothing. */
+    @PostMapping("/{id}/cancel")
+    public PaymentResponse cancel(@PathVariable UUID id) {
+        return PaymentResponse.from(payments.cancel(id));
     }
 }
