@@ -23,6 +23,12 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 payments:
+  outbox:
+    publisher: log            # log | kafka
+    relay:
+      enabled: true
+      poll-interval-ms: 1000
+      batch-size: 100
   reconciliation:
     enabled: true
     poll-interval-ms: 60000
