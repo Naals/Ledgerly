@@ -232,4 +232,47 @@ public class PaymentService {
         return new ServiceUnavailableException("ledger-unavailable",
                 "The ledger cannot " + action + " the payment right now; the same request can be repeated");
     }
+
+    /**
+     * Cancels an authorized payment: the ledger releases the held money. Cancelling a payment that is already
+     * CANCELLED or EXPIRED returns it unchanged. A payment that has been captured cannot be cancelled.
+     */
+    public Payment cancel(UUID paymentId) {
+        Payment payment = get(paymentId);
+        if (payment.captureMode() != CaptureMode.MANUAL) {
+            throw new PaymentNotCancellableException(paymentId, "it was paid in one step (AUTOMATIC)");
+        }
+        switch (payment.status()) {
+            case CANCELLED, EXPIRED -> {
+                return payment;
+            }
+            case AUTHORIZED -> {
+                // go on
+            }
+            default -> throw new PaymentNotCancellableException(paymentId, "it is " + payment.status());
+        }
+
+        LedgerOutcome<HoldInfo> outcome = ledger.release(payment);
+        return switch (outcome) {
+            case LedgerOutcome.Done<HoldInfo> done -> {
+                record(payment, done.value());
+                yield get(paymentId);
+            }
+            case LedgerOutcome.Rejected<HoldInfo> rejected -> afterRefusedRelease(payment, rejected.code());
+            case LedgerOutcome.Unavailable<HoldInfo> unavailable -> throw ledgerUnavailable("release", unavailable.reason());
+        };
+    }
+
+    /** The ledger refused to release: a capture got there first, or the hold had ended. Find out which. */
+    private Payment afterRefusedRelease(Payment payment, String code) {
+        if (!"hold-not-active".equals(code)) {
+            throw new BusinessRuleException(code, "The ledger refused the release: " + code);
+        }
+        settle(payment);
+        Payment now = get(payment.id());
+        if (now.status() == PaymentStatus.COMPLETED) {
+            throw new PaymentNotCancellableException(payment.id(), "it has already been captured");
+        }
+        return now;
+    }
 }
