@@ -146,3 +146,6 @@ Event contracts: [`contracts`](contracts). Design decisions: [`docs/adr`](docs/a
 - `POST /api/v1/holds/{id}/release`    give the funds back
 - `GET  /api/v1/accounts/{id}/balance` now also returns `heldMinor` and `availableMinor`
 - `POST /api/v1/transfers`             accepts an optional `reference`, echoed on transactions and events
+- `POST /api/v1/payments`                  with `"captureMode": "MANUAL"`: reserve the money first (Idempotency-Key)
+- `POST /api/v1/payments/{id}/capture`     take the reserved money (repeating it is harmless)
+- `POST /api/v1/payments/{id}/cancel`      give it back (repeating it is harmless)
