@@ -1,7 +1,9 @@
 package com.project.paymentservice.payment;
 
 import com.project.paymentservice.common.BadRequestException;
+import com.project.paymentservice.common.BusinessRuleException;
 import com.project.paymentservice.common.RequestFingerprint;
+import com.project.paymentservice.common.ServiceUnavailableException;
 import com.project.paymentservice.ledger.HoldInfo;
 import com.project.paymentservice.ledger.LedgerGateway;
 import com.project.paymentservice.ledger.LedgerOutcome;
@@ -133,5 +135,101 @@ public class PaymentService {
             throw new IdempotencyKeyReuseException(idempotencyKey);
         }
         return new CreatedPayment(existing, true);
+    }
+
+    /**
+     * Captures an authorized payment: the ledger moves the held money. Capturing a payment that is already
+     * COMPLETED returns it unchanged. If the ledger cannot answer, the payment stays AUTHORIZED and the same
+     * call can simply be repeated.
+     */
+    public Payment capture(UUID paymentId) {
+        Payment payment = get(paymentId);
+        if (payment.captureMode() != CaptureMode.MANUAL) {
+            throw new PaymentNotCapturableException(paymentId, "it was paid in one step (AUTOMATIC)");
+        }
+        switch (payment.status()) {
+            case COMPLETED -> {
+                return payment;
+            }
+            case AUTHORIZED -> {
+                // go on
+            }
+            default -> throw new PaymentNotCapturableException(paymentId, "it is " + payment.status());
+        }
+
+        LedgerOutcome<UUID> outcome = ledger.capture(payment);
+        return switch (outcome) {
+            case LedgerOutcome.Done<UUID> done -> {
+                payments.markCaptured(paymentId, done.value());
+                yield get(paymentId);
+            }
+            case LedgerOutcome.Rejected<UUID> rejected -> afterRefusedCapture(payment, rejected.code());
+            case LedgerOutcome.Unavailable<UUID> unavailable -> throw ledgerUnavailable("capture", unavailable.reason());
+        };
+    }
+
+    /**
+     * Asks the ledger what became of an authorized payment's hold and records it: captured (the payment is
+     * COMPLETED), released (CANCELLED) or expired (EXPIRED). This is how the service catches up when it was not
+     * told, for example when the answer to a capture was lost.
+     */
+    public Settlement settle(Payment payment) {
+        if (payment.status() != PaymentStatus.AUTHORIZED) {
+            return Settlement.NOT_AUTHORIZED;
+        }
+        LedgerOutcome<HoldInfo> outcome = ledger.findHold(payment.ledgerHoldId());
+        return switch (outcome) {
+            case LedgerOutcome.Done<HoldInfo> done -> record(payment, done.value());
+            case LedgerOutcome.Rejected<HoldInfo> rejected -> {
+                log.error("The ledger does not know the hold {} of payment {}: {}",
+                        payment.ledgerHoldId(), payment.id(), rejected.code());
+                yield Settlement.UNKNOWN_HOLD;
+            }
+            case LedgerOutcome.Unavailable<HoldInfo> unavailable -> Settlement.LEDGER_UNAVAILABLE;
+        };
+    }
+
+    /** The ledger refused to capture. Some refusals mean the hold's fate was decided elsewhere: find out which. */
+    private Payment afterRefusedCapture(Payment payment, String code) {
+        switch (code) {
+            case "hold-expired" -> {
+                payments.markExpired(payment.id());
+                throw new PaymentNotCapturableException(payment.id(), "its authorization has expired");
+            }
+            case "hold-not-active" -> {
+                settle(payment);
+                Payment now = get(payment.id());
+                if (now.status() == PaymentStatus.COMPLETED) {
+                    return now;
+                }
+                throw new PaymentNotCapturableException(payment.id(), "it is " + now.status());
+            }
+            default -> throw new BusinessRuleException(code, "The ledger refused the capture: " + code);
+        }
+    }
+
+    private Settlement record(Payment payment, HoldInfo hold) {
+        switch (hold.state()) {
+            case ACTIVE -> {
+                return Settlement.STILL_ACTIVE;
+            }
+            case CAPTURED -> {
+                if (hold.ledgerTransactionId() == null) {
+                    log.error("The ledger says hold {} of payment {} is captured but gave no transaction",
+                            hold.id(), payment.id());
+                    return Settlement.UNKNOWN_HOLD;
+                }
+                payments.markCaptured(payment.id(), hold.ledgerTransactionId());
+            }
+            case RELEASED -> payments.markCancelled(payment.id());
+            case EXPIRED -> payments.markExpired(payment.id());
+        }
+        return Settlement.SETTLED;
+    }
+
+    private ServiceUnavailableException ledgerUnavailable(String action, String reason) {
+        log.warn("The ledger could not {} a payment: {}", action, reason);
+        return new ServiceUnavailableException("ledger-unavailable",
+                "The ledger cannot " + action + " the payment right now; the same request can be repeated");
     }
 }

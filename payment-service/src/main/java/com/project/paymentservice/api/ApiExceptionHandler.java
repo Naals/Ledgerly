@@ -3,7 +3,9 @@ package com.project.paymentservice.api;
 import com.project.paymentservice.common.BadRequestException;
 import com.project.paymentservice.common.BusinessRuleException;
 import com.project.paymentservice.common.NotFoundException;
+import com.project.paymentservice.common.ConflictException;
 import com.project.paymentservice.common.ServiceException;
+import com.project.paymentservice.common.ServiceUnavailableException;
 import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
@@ -67,5 +69,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setTitle(status.getReasonPhrase());
         problem.setType(URI.create(PROBLEM_TYPE_PREFIX + ex.code()));
         return problem;
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    ProblemDetail handleConflict(ConflictException ex) {
+        return problem(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(ServiceUnavailableException.class)
+    ProblemDetail handleServiceUnavailable(ServiceUnavailableException ex) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, ex);
     }
 }
