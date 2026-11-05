@@ -97,8 +97,10 @@ services:
       DB_PASSWORD: payments
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       PAYMENTS_LEDGER_BASE_URL: http://ledger-core:8080
+      PAYMENTS_OUTBOX_PUBLISHER: kafka
     ports:
       - "8081:8081"
+
 
 volumes:
   ledgerly-pgdata:

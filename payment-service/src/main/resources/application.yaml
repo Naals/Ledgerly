@@ -24,6 +24,10 @@ spring:
 
 payments:
   outbox:
+    kafka:
+      send-timeout: 10s
+      topics:
+        PaymentStatusChanged: payments.payment-status-changed.v1
     publisher: log            # log | kafka
     relay:
       enabled: true
