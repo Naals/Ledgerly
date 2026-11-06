@@ -39,6 +39,10 @@ ledger:
       interval-ms: 30000
       batch-size: 100
   outbox:
+    kafka:
+      send-timeout: 10s
+      topics:
+        HoldStatusChanged: ledger.hold-status-changed.v1
     cleanup:
       enabled: true
       retention-days: 7

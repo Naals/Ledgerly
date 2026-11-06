@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "holdId": "7c9e1a43-5d6f-418a-8e2c-803f4b5d6e77",
+  "status": "EXPIRED",
+  "previousStatus": "ACTIVE",
+  "accountId": "0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e01",
+  "toAccountId": "0c8f4f2e-6b0e-4d0e-8f3a-1a2b3c4d5e02",
+  "amountMinor": 40000,
+  "currency": "KZT",
+  "reference": null,
+  "expiresAt": "2026-01-15T10:00:00.000000Z",
+  "capturedMinor": null,
+  "ledgerTransactionId": null,
+  "occurredAt": "2026-11-03T09:33:00.000002Z"
+}
