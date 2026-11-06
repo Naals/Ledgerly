@@ -26,8 +26,4 @@ public record LedgerEvent(int version, UUID transactionId, String type, String r
             return Optional.empty();
         }
     }
-
-    public boolean isTransfer() {
-        return "TRANSFER".equals(type);
-    }
 }

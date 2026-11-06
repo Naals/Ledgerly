@@ -84,11 +84,4 @@ class LedgerEventParserTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test
-    void aTransferIsATransferAndNotAReversal() throws IOException {
-        LedgerEvent event = LedgerEventParser.parse(sample("transaction-posted.v1.transfer.json"));
-
-        assertThat(event.isTransfer()).isTrue();
-        assertThat(event.isReversal()).isFalse();
-    }
 }

@@ -29,6 +29,7 @@ payments:
       retention-days: 7
       cron: "0 17 3 * * *"
     kafka:
+      hold-topic: ledger.hold-status-changed.v1
       send-timeout: 10s
       topics:
         PaymentStatusChanged: payments.payment-status-changed.v1

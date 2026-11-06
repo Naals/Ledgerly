@@ -1,35 +1,23 @@
 package com.project.paymentservice.events;
 
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.common.header.Header;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/** Reads the ledger's TransactionPosted events from Kafka and hands them to the handlers that care. */
+/** Reads the ledger's TransactionPosted events from Kafka. Today only reversals matter to this service. */
 @Component
 @ConditionalOnProperty(name = "payments.kafka.enabled", havingValue = "true", matchIfMissing = true)
 public class LedgerEventsListener {
 
     private final PaymentReversalHandler reversals;
-    private final PaymentCaptureHandler captures;
 
-    public LedgerEventsListener(PaymentReversalHandler reversals, PaymentCaptureHandler captures) {
+    public LedgerEventsListener(PaymentReversalHandler reversals) {
         this.reversals = reversals;
-        this.captures = captures;
     }
 
     @KafkaListener(topics = "${payments.kafka.ledger-topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void onLedgerEvent(ConsumerRecord<String, String> record) {
-        Header header = record.headers().lastHeader("event-id");
-        if (header == null) {
-            throw new IllegalArgumentException("Ledger event without an event-id header at offset " + record.offset());
-        }
-        UUID eventId = UUID.fromString(new String(header.value(), StandardCharsets.UTF_8));
-        // each handler ignores the event types it does not own
-        reversals.handle(eventId, record.value());
-        captures.handle(eventId, record.value());
+        reversals.handle(EventHeaders.eventId(record), record.value());
     }
 }

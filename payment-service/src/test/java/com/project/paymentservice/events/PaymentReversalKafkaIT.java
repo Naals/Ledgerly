@@ -94,19 +94,4 @@ class PaymentReversalKafkaIT {
         return jdbc.queryForObject("SELECT status FROM payments WHERE id = ?", String.class, paymentId);
     }
 
-    @Test
-    void aCaptureEventFromKafkaCompletesTheAuthorizedPayment() {
-        UUID paymentId = pendingPayment();
-        jdbc.update("UPDATE payments SET capture_mode = 'MANUAL' WHERE id = ?", paymentId);
-        jdbc.update("UPDATE payments SET status = 'AUTHORIZED', ledger_hold_id = ?, "
-                + "authorization_expires_at = now() + interval '1 hour' WHERE id = ?", UUID.randomUUID(), paymentId);
-        UUID transaction = UUID.randomUUID();
-
-        send(PaymentCaptureHandlerIT.transferOf(paymentId.toString(), transaction));
-
-        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
-                assertThat(statusOf(paymentId)).isEqualTo("COMPLETED"));
-        assertThat(jdbc.queryForObject("SELECT ledger_transaction_id FROM payments WHERE id = ?", UUID.class, paymentId))
-                .isEqualTo(transaction);
-    }
 }

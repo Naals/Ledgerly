@@ -48,4 +48,10 @@ class KafkaConfiguration {
     NewTopic ledgerEventsDeadLetterTopic(@Value("${payments.kafka.ledger-topic}") String ledgerTopic) {
         return TopicBuilder.name(ledgerTopic + DEAD_LETTER_SUFFIX).partitions(1).replicas(1).build();
     }
+
+    /** The dead-letter topic of the hold events exists from the start too. */
+    @Bean
+    NewTopic holdEventsDeadLetterTopic(@Value("${payments.kafka.hold-topic}") String holdTopic) {
+        return TopicBuilder.name(holdTopic + DEAD_LETTER_SUFFIX).partitions(1).replicas(1).build();
+    }
 }
