@@ -24,6 +24,10 @@ spring:
 
 payments:
   outbox:
+    cleanup:
+      enabled: true
+      retention-days: 7
+      cron: "0 17 3 * * *"
     kafka:
       send-timeout: 10s
       topics:
