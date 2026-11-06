@@ -154,11 +154,15 @@ public class PaymentRepository {
                 .list();
     }
 
-    /** Authorized payments whose authorization has run out (by the database's clock), the oldest first. */
-    public List<UUID> findDueAuthorizations(int limit) {
+    /**
+     * Authorized payments whose authorization ended more than {@code graceSeconds} ago (by the database's clock), the
+     * oldest first. The grace period leaves the ledger's hold events time to settle them first.
+     */
+    public List<UUID> findDueAuthorizations(int graceSeconds, int limit) {
         return jdbc.sql("SELECT id FROM payments WHERE status = 'AUTHORIZED' "
-                        + "AND authorization_expires_at <= clock_timestamp() "
+                        + "AND authorization_expires_at <= clock_timestamp() - (:grace * interval '1 second') "
                         + "ORDER BY authorization_expires_at LIMIT :limit")
+                .param("grace", graceSeconds)
                 .param("limit", limit)
                 .query((rs, rowNum) -> rs.getObject("id", UUID.class))
                 .list();

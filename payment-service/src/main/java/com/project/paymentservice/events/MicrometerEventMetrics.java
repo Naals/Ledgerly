@@ -22,4 +22,9 @@ class MicrometerEventMetrics implements EventMetrics {
     public void deadLettered(String topic) {
         registry.counter("payments.events.dead.lettered", "topic", topic).increment();
     }
+
+    @Override
+    public void reconciled(int authorizations) {
+        registry.counter("payments.reconciliation.settled").increment(authorizations);
+    }
 }

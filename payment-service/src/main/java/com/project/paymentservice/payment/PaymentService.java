@@ -277,12 +277,13 @@ public class PaymentService {
     }
 
     /**
-     * Settles authorized payments whose authorization has run out. Returns how many it settled. Stops at the
-     * first sign that the ledger is down rather than waiting for it once per payment.
+     * Settles authorized payments whose authorization ran out more than {@code graceSeconds} ago. Returns how many it
+     * settled. The grace period leaves the hold events time to do this first: whatever is found after it is something the
+     * events missed. Stops at the first sign that the ledger is down rather than waiting for it once per payment.
      */
-    public int reconcileAuthorizations(int limit) {
+    public int reconcileAuthorizations(int graceSeconds, int limit) {
         int settled = 0;
-        for (UUID id : payments.findDueAuthorizations(limit)) {
+        for (UUID id : payments.findDueAuthorizations(graceSeconds, limit)) {
             Settlement settlement = settle(get(id));
             if (settlement == Settlement.SETTLED) {
                 settled++;

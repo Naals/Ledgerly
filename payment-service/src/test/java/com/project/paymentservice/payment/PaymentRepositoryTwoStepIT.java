@@ -92,12 +92,14 @@ class PaymentRepositoryTwoStepIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void onlyAuthorizedPaymentsPastTheirExpiryAreDue() {
-        UUID due = authorizedPayment(OffsetDateTime.now().minusMinutes(5));
+    void onlyAuthorizedPaymentsPastTheirExpiryPlusTheGracePeriodAreDue() {
+        UUID longAgo = authorizedPayment(OffsetDateTime.now().minusHours(2));
+        UUID aMomentAgo = authorizedPayment(OffsetDateTime.now().minusMinutes(1));
         UUID later = authorizedPayment(OffsetDateTime.now().plusHours(1));
-        UUID cancelled = authorizedPayment(OffsetDateTime.now().minusMinutes(5));
+        UUID cancelled = authorizedPayment(OffsetDateTime.now().minusHours(2));
         repository.markCancelled(cancelled);
 
-        assertThat(repository.findDueAuthorizations(1_000)).contains(due).doesNotContain(later, cancelled);
+        assertThat(repository.findDueAuthorizations(0, 1_000)).contains(longAgo, aMomentAgo).doesNotContain(later, cancelled);
+        assertThat(repository.findDueAuthorizations(300, 1_000)).contains(longAgo).doesNotContain(aMomentAgo, later, cancelled);
     }
 }
