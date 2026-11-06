@@ -39,6 +39,7 @@ payments:
       poll-interval-ms: 1000
       batch-size: 100
   reconciliation:
+    grace-seconds: 300       # leave the hold events five minutes to settle an ended authorization first
     enabled: true
     poll-interval-ms: 60000
     batch-size: 50
