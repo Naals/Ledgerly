@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
+
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -27,6 +29,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
+import static org.awaitility.Awaitility.await;
 
 @Testcontainers
 @SpringBootTest(properties = {
@@ -37,6 +40,9 @@ import org.testcontainers.kafka.KafkaContainer;
 class PaymentDeadLetterKafkaIT {
 
     static final String TOPIC = "ledger.transaction-posted.v1";
+
+    @Autowired
+    MeterRegistry registry;
 
     @Container
     static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka:3.9.1");
@@ -87,6 +93,9 @@ class PaymentDeadLetterKafkaIT {
                 }
             }
         }
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() ->
+                assertThat(registry.counter("payments.events.dead.lettered", "topic", TOPIC).count()).isEqualTo(1));
         throw new AssertionError("Nothing arrived on " + topic + " within 60 seconds");
     }
+
 }

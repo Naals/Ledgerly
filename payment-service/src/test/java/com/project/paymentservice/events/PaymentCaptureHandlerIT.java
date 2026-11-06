@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.project.paymentservice.events.PaymentCaptureHandler.Outcome;
 import com.project.paymentservice.support.AbstractIntegrationTest;
 import java.util.UUID;
+
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +19,9 @@ class PaymentCaptureHandlerIT extends AbstractIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    MeterRegistry registry;
 
     @Test
     void aCaptureEventCompletesTheAuthorizedPaymentNamedByItsReference() {
@@ -98,10 +103,17 @@ class PaymentCaptureHandlerIT extends AbstractIntegrationTest {
     void aTransferForACancelledPaymentIsRaisedAsInconsistentNotHidden() {
         UUID paymentId = manualPayment(true);
         jdbc.update("UPDATE payments SET status = 'CANCELLED' WHERE id = ?", paymentId);
+        double before = inconsistencies("CANCELLED");
 
         assertThat(handler.handle(UUID.randomUUID(), transferOf(paymentId.toString(), UUID.randomUUID())))
                 .isEqualTo(Outcome.PAYMENT_INCONSISTENT);
+
         assertThat(statusOf(paymentId)).isEqualTo("CANCELLED");
+        assertThat(inconsistencies("CANCELLED")).isEqualTo(before + 1);
+    }
+
+    private double inconsistencies(String paymentStatus) {
+        return registry.counter("payments.events.inconsistent", "payment_status", paymentStatus).count();
     }
 
     @Test

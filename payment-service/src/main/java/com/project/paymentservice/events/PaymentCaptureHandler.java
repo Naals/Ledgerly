@@ -34,10 +34,13 @@ public class PaymentCaptureHandler {
 
     private final ProcessedEventRepository processedEvents;
     private final PaymentRepository payments;
+    private final EventMetrics metrics;
 
-    public PaymentCaptureHandler(ProcessedEventRepository processedEvents, PaymentRepository payments) {
+    public PaymentCaptureHandler(ProcessedEventRepository processedEvents, PaymentRepository payments,
+                                 EventMetrics metrics) {
         this.processedEvents = processedEvents;
         this.payments = payments;
+        this.metrics = metrics;
     }
 
     /**
@@ -74,6 +77,7 @@ public class PaymentCaptureHandler {
             case INCONSISTENT -> {
                 log.error("The ledger moved money (transaction {}) for payment {}, which is {}: needs attention",
                         event.transactionId(), captured.id(), captured.status());
+                metrics.inconsistent(captured.status());
                 yield Outcome.PAYMENT_INCONSISTENT;
             }
             case WAIT_FOR_AUTHORIZATION -> throw new PaymentNotSettledException(captured.id());
