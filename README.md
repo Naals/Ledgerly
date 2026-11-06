@@ -149,3 +149,10 @@ Event contracts: [`contracts`](contracts). Design decisions: [`docs/adr`](docs/a
 - `POST /api/v1/payments`                  with `"captureMode": "MANUAL"`: reserve the money first (Idempotency-Key)
 - `POST /api/v1/payments/{id}/capture`     take the reserved money (repeating it is harmless)
 - `POST /api/v1/payments/{id}/cancel`      give it back (repeating it is harmless)
+
+
+## Events
+- `ledger.transaction-posted.v1`            from ledger-core, one per posted transaction (key: transaction id)
+- `payments.payment-status-changed.v1`      from payment-service, one per payment status change (key: payment id,
+  in order per payment; `sequence` and the `event-id` header for deduplication)
+  Samples of every event are in `contracts/` and are checked on both sides.
