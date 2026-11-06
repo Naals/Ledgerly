@@ -87,4 +87,15 @@ public class OutboxRepository {
                 .query(ROW_MAPPER)
                 .list();
     }
+
+    /** Deletes up to {@code limit} events that were delivered more than {@code days} days ago. Returns how many. */
+    public int deletePublishedOlderThan(int days, int limit) {
+        return jdbc.sql("DELETE FROM outbox_events WHERE seq IN ("
+                        + "SELECT seq FROM outbox_events "
+                        + "WHERE published_at < clock_timestamp() - (:days * interval '1 day') "
+                        + "ORDER BY seq LIMIT :limit)")
+                .param("days", days)
+                .param("limit", limit)
+                .update();
+    }
 }

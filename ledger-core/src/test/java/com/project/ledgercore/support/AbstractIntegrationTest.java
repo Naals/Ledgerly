@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Import;
  * The outbox relay is off, so tests decide when events are delivered.
  */
 @SpringBootTest(properties = {
-        "payments.retry.enabled=false", "payments.kafka.enabled=false", "payments.reconciliation.enabled=false"})
+        "ledger.outbox.relay.enabled=false", "ledger.holds.expiry.enabled=false", "ledger.outbox.cleanup.enabled=false"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 public abstract class AbstractIntegrationTest {

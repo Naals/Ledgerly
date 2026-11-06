@@ -39,6 +39,10 @@ ledger:
       interval-ms: 30000
       batch-size: 100
   outbox:
+    cleanup:
+      enabled: true
+      retention-days: 7
+      cron: "0 17 3 * * *"
     relay:
       enabled: true
       poll-interval-ms: 1000
