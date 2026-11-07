@@ -153,6 +153,8 @@ Event contracts: [`contracts`](contracts). Design decisions: [`docs/adr`](docs/a
 
 ## Events
 - `ledger.transaction-posted.v1`            from ledger-core, one per posted transaction (key: transaction id)
+- `ledger.hold-status-changed.v1`            from ledger-core, one per hold status change (key: hold id);
+  the capture's event names the transfer that moved the money
 - `payments.payment-status-changed.v1`      from payment-service, one per payment status change (key: payment id,
   in order per payment; `sequence` and the `event-id` header for deduplication)
   Samples of every event are in `contracts/` and are checked on both sides.

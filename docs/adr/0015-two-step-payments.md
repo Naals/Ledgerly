@@ -21,10 +21,8 @@ drive them without ever believing its own picture over the ledger's.
 - The ledger is the source of truth about a hold. When the ledger refuses a capture or release with `hold-not-active`,
   the service asks (`settle`) and records what happened: captured (COMPLETED), released (CANCELLED) or expired (EXPIRED).
   `hold-expired` expires the payment directly.
-- Two ways to catch up when an answer was lost: (1) the capture's TransactionPosted event names the payment through its
-  reference and completes it (fast path; recorded only for events that are a manual payment's capture, since most
-  transfers are not ours); (2) a reconciliation job settles authorizations past their expiry (slow path; stops at the
-  first sign the ledger is down).
+- Catching up when an answer was lost: the ledger's hold events settle the payment (ADR 0017, which replaced the
+  transfer-based capture handler first used here); a reconciliation job is the safety net behind them.
 - A reversal or capture event for a payment that has not caught up (PENDING, or AUTHORIZED for a reversal) fails so
   Kafka redelivers it with a back-off of about a minute, as for reversals (ADR 0013).
 - A capture event for a payment that FAILED, was CANCELLED or EXPIRED is a disagreement between the services:
