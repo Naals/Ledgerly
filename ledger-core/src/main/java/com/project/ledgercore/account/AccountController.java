@@ -38,11 +38,6 @@ public class AccountController {
         return AccountResponse.from(accounts.get(id));
     }
 
-    @GetMapping("/{id}/balance")
-    public BalanceResponse balance(@PathVariable UUID id) {
-        return BalanceResponse.from(id, accounts.balanceOf(id));
-    }
-
     @GetMapping("/{id}/entries")
     public EntryPageResponse entries(@PathVariable UUID id,
                                      @RequestParam(required = false) Long before,
