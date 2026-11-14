@@ -1,0 +1,67 @@
+groups:
+  - name: ledgerly-reliability
+    rules:
+
+      - alert: LedgerlyServiceDown
+        expr: up{job=~"ledger-core|payment-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is unavailable"
+          description: >
+            Prometheus cannot scrape {{ $labels.instance }}.
+            Check container status and application logs.
+
+      - alert: LedgerOutboxDeliveryDelayed
+        expr: ledger_outbox_oldest_pending_age_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledger outbox is delayed"
+          description: >
+            The oldest unpublished ledger event has been
+            waiting for more than 60 seconds.
+
+      - alert: PaymentOutboxDeliveryDelayed
+        expr: payments_outbox_oldest_pending_age_seconds > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment outbox is delayed"
+          description: >
+            Payment events are not being delivered in time.
+            Check the relay, Kafka and outbox retry errors.
+
+      - alert: LedgerlyPaymentInconsistency
+        expr: sum(increase(payments_events_inconsistent_total[5m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledger and payment state disagree"
+          description: >
+            A hold or ledger transaction contradicts
+            the payment's recorded status.
+            Manual investigation is required.
+
+      - alert: LedgerlyDeadLetterEvent
+        expr: sum(increase(payments_events_dead_lettered_total[5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka event moved to dead-letter topic"
+          description: >
+            An event could not be processed successfully.
+            Inspect the dead-letter topic and exception headers.
+
+      - alert: LedgerlyReconciliationFallback
+        expr: sum(increase(payments_reconciliation_settled_total[5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment reconciliation fallback used"
+          description: >
+            Reconciliation settled a payment that was not
+            updated through the normal hold-event path.
