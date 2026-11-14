@@ -62,7 +62,7 @@ class HoldEventParserTest {
     }
 
     @Test
-    void refusesWhatItCannotTrust() throws IOException {
+    void refusesWhatItCannotTrust()  {
         assertThatThrownBy(() -> HoldEventParser.parse("this is not json")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> HoldEventParser.parse("{\"status\": \"RELEASED\"}")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> HoldEventParser.parse(sample("released").replace("RELEASED", "PARTIALLY_CAPTURED")))
@@ -71,5 +71,48 @@ class HoldEventParserTest {
                 sample("captured").replace(TRANSACTION.toString(), "null").replace("\"null\"", "null")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("transaction");
+    }
+
+    @Test
+    void rejectsUnsupportedContractVersion() throws IOException {
+        String unsupported = sample("captured")
+                .replace("\"version\": 1", "\"version\": 2");
+
+        assertThatThrownBy(
+                () -> HoldEventParser.parse(unsupported)
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "Unsupported HoldStatusChanged version: 2"
+                );
+    }
+
+    @Test
+    void rejectsMissingContractVersion() throws IOException {
+        String missing = sample("released")
+                .replace("\"version\": 1,", "");
+
+        assertThatThrownBy(
+                () -> HoldEventParser.parse(missing)
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "Unsupported HoldStatusChanged version: 0"
+                );
+    }
+
+    @Test
+    void acceptsAdditionalFieldsWithinVersionOne()
+            throws IOException {
+
+        String compatible = sample("captured").replace(
+                "\"version\": 1,",
+                "\"version\": 1, \"traceId\": \"example\","
+        );
+
+        HoldEvent event = HoldEventParser.parse(compatible);
+
+        assertThat(event.version()).isEqualTo(1);
+        assertThat(event.state()).isEqualTo(HoldState.CAPTURED);
     }
 }
