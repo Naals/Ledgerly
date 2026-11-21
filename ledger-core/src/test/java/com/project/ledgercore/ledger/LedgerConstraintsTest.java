@@ -9,14 +9,14 @@ class LedgerConstraintsTest {
     @Test
     void recognisesTheOverdraftConstraintInTheMessage() {
         RuntimeException error = new RuntimeException("ERROR: new row for relation \"accounts\" violates check "
-                + "constraint \"ck_accounts_balance_non_negative\"");
+                + "constraint \"ck_accounts_available_non_negative\"");
 
         assertThat(LedgerConstraints.isOverdraftViolation(error)).isTrue();
     }
 
     @Test
     void recognisesItInsideACauseChain() {
-        RuntimeException root = new RuntimeException("violates check constraint \"ck_accounts_balance_non_negative\"");
+        RuntimeException root = new RuntimeException("violates check constraint \"ck_accounts_available_non_negative\"");
         RuntimeException wrapped = new IllegalStateException("could not execute statement",
                 new RuntimeException("PreparedStatementCallback; SQL []", root));
 
@@ -48,7 +48,7 @@ class LedgerConstraintsTest {
 
     @Test
     void overdraftAndInactiveAccountViolationsAreDistinct() {
-        RuntimeException overdraft = new RuntimeException("violates check constraint \"ck_accounts_balance_non_negative\"");
+        RuntimeException overdraft = new RuntimeException("violates check constraint \"ck_accounts_available_non_negative\"");
         RuntimeException inactive = new RuntimeException("cannot take new entries (account_not_active)");
 
         assertThat(LedgerConstraints.isInactiveAccountViolation(overdraft)).isFalse();

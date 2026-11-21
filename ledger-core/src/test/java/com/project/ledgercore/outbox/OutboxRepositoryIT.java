@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.ledgercore.support.AbstractIntegrationTest;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -62,7 +61,8 @@ class OutboxRepositoryIT extends AbstractIntegrationTest {
         outbox.markPublished(event.seq());
 
         assertThat(outbox.countPending()).isZero();
-        assertThat(Collections.singletonList(tx.execute(status -> outbox.lockPending(10)))).isEmpty();
+        List<OutboxEvent> pending = tx.execute(status -> outbox.lockPending(10));
+        assertThat(pending).isEmpty();
     }
 
     @Test
@@ -75,7 +75,8 @@ class OutboxRepositoryIT extends AbstractIntegrationTest {
                 "SELECT attempts, last_error FROM outbox_events WHERE seq = ?", event.seq());
         assertThat(row.get("attempts")).isEqualTo(1);
         assertThat(row.get("last_error")).isEqualTo("broker down");
-        assertThat(Collections.singletonList(tx.execute(status -> outbox.lockPending(10)))).isEmpty();   // not due for another minute
+        List<OutboxEvent> due = tx.execute(status -> outbox.lockPending(10));
+        assertThat(due).isEmpty();                                           // not due for another minute
         assertThat(outbox.countPending()).isEqualTo(1);                       // but still waiting to be delivered
     }
 

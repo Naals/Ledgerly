@@ -9,6 +9,7 @@ import com.project.ledgercore.support.LedgerInvariants;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -44,7 +45,8 @@ class BalanceCacheIT extends AbstractIntegrationTest {
         UUID alice = fixtures.customerAccount("KZT");
 
         assertThatThrownBy(() -> commit(alice, funding, 100))
-                .hasStackTraceContaining("ck_accounts_balance_non_negative");
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasStackTraceContaining("ck_accounts_available_non_negative");
 
         assertThat(cachedBalance(alice)).isZero();
     }
