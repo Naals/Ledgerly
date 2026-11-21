@@ -1,18 +1,24 @@
 # Ledgerly
 
-A mini payments core in Java 21 and Spring Boot 3: double-entry ledger, idempotent transfers,
-holds and captures, saga-based external payments, event-driven fraud and notification services,
-reconciliation and audit.
+A mini payments core in Java 21 and Spring Boot 3: a double-entry ledger, idempotent transfers,
+holds and captures, payment orchestration, Kafka events, and authorization reconciliation.
+
+The implemented services are `ledger-core` and `payment-service`. External-payment sagas,
+fraud and notification services, and authentication/authorization are roadmap work.
+The current stack is for local development; its APIs do not enforce account ownership.
 
 Built in small, atomic commits, every day. Design decisions are in [`docs/adr`](docs/adr).
 
 ## Run locally
 
 ```bash
-docker compose up -d                       # PostgreSQL 16
+docker compose up -d postgres              # ledger database only
 mvn -pl ledger-core spring-boot:run
 curl localhost:8080/actuator/health
 ```
+
+This starts the ledger locally with the logging event publisher. Use **Run everything** below
+to run both services and Kafka in containers instead.
 
 ## Test
 
@@ -24,6 +30,10 @@ mvn verify     # + integration tests against real PostgreSQL via Testcontainers 
 
 Every money-moving POST needs an `Idempotency-Key` header. A retry with the same key and body is
 safe: it returns the original result and moves no money.
+For transfers and hold creation, the ledger also remembers business rejections: after correcting
+a rejected request's conditions (for example, funding an account), use a new key to try again.
+Infrastructure failures remain retryable with the original key. Failed captures, cash operations,
+and reversals can still be retried with the same key after their conditions change.
 
 ```bash
 # open two accounts and keep their ids
@@ -87,6 +97,7 @@ Design decisions: [`docs/adr`](docs/adr).
 | 8 | Kubernetes and Helm, CI/CD, hardening, documentation, demo, interview prep |
 
 
+```bash
 # reverse a transfer: it needs an Idempotency-Key, can happen once, and only if the money is still there
 TX=$(curl -s -X POST localhost:8080/api/v1/transfers \
 -H 'Content-Type: application/json' -H "Idempotency-Key: $(uuidgen)" \
@@ -98,6 +109,7 @@ curl -s localhost:8080/api/v1/transactions/$TX      # shows reversedByTransactio
 
 # every posting also wrote an event to the outbox; the relay logs it, and the lag is a metric
 curl -s localhost:8080/actuator/metrics/ledger.outbox.pending
+```
 
 
 ## Run everything
