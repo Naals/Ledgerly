@@ -1,6 +1,8 @@
 package com.project.ledgercore.api;
 
 import com.project.ledgercore.common.*;
+import com.project.ledgercore.idempotency.IdempotencyKeys;
+import com.project.ledgercore.idempotency.IdempotentRejectionException;
 
 import java.net.URI;
 import java.util.Map;
@@ -23,6 +25,14 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final String PROBLEM_TYPE_PREFIX = "urn:ledgerly:problem:";
+
+    @ExceptionHandler(IdempotentRejectionException.class)
+    ResponseEntity<ProblemDetail> handleIdempotentRejection(IdempotentRejectionException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.status());
+        return ResponseEntity.status(status)
+                .header(IdempotencyKeys.REPLAYED_HEADER, Boolean.toString(ex.replayed()))
+                .body(problem(status, ex));
+    }
 
     @ExceptionHandler(BadRequestException.class)
     ProblemDetail handleBadRequest(BadRequestException ex) {

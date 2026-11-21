@@ -68,6 +68,26 @@ class HoldApiIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aRejectedAuthorizationCannotReserveFundsOnALaterRetry() throws Exception {
+        String key = UUID.randomUUID().toString();
+        mvc.perform(place(key, 2_000))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(header().string("Idempotent-Replayed", "false"));
+
+        cash.deposit(alice.id(), Money.of(2_000, "KZT"));
+
+        mvc.perform(place(key, 2_000))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(header().string("Idempotent-Replayed", "true"))
+                .andExpect(jsonPath("$.type").value("urn:ledgerly:problem:insufficient-funds"));
+        mvc.perform(get("/api/v1/accounts/{id}/balance", alice.id()))
+                .andExpect(jsonPath("$.amountMinor").value(3_000))
+                .andExpect(jsonPath("$.heldMinor").value(0));
+
+        mvc.perform(place(UUID.randomUUID().toString(), 2_000)).andExpect(status().isCreated());
+    }
+
+    @Test
     void retryingWithTheSameKeyReturnsTheSameHoldAndReservesOnce() throws Exception {
         String key = UUID.randomUUID().toString();
         String first = mvc.perform(place(key, 300)).andExpect(status().isCreated())

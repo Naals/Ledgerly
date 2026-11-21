@@ -45,7 +45,7 @@ public class TransferController {
         }
         String fingerprint = RequestFingerprint.of(parts.toArray(String[]::new));
 
-        IdempotencyService.Outcome<TransferResponse> outcome = idempotency.execute(SCOPE, key, fingerprint, TransferResponse.class, () -> {
+        IdempotencyService.Outcome<TransferResponse> outcome = idempotency.executeWithDurableRejections(SCOPE, key, fingerprint, TransferResponse.class, () -> {
             UUID transactionId = transfers.transfer(
                     request.fromAccountId(), request.toAccountId(), amount, request.reference());
             return new TransferResponse(transactionId, request.fromAccountId(), request.toAccountId(),

@@ -3,6 +3,10 @@
 - Status: accepted
 - Date: 2026-10-22
 
+For initial transfers and hold placement, failure handling in decision 4 is superseded by
+[ADR 0019](0019-durable-idempotency-outcomes.md): business refusals remain final for their key.
+Captures, cash operations and reversals retain the retryable failure behavior below.
+
 ## Context
 
 Clients retry after timeouts and dropped connections. Without protection a retried transfer, deposit

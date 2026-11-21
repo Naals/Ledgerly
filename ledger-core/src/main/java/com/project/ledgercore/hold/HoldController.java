@@ -47,7 +47,7 @@ public class HoldController {
                 String.valueOf(request.reference()),
                 String.valueOf(request.ttlSeconds()));
 
-        Outcome<HoldResponse> outcome = idempotency.execute(PLACE_SCOPE, key, fingerprint, HoldResponse.class,
+        Outcome<HoldResponse> outcome = idempotency.executeWithDurableRejections(PLACE_SCOPE, key, fingerprint, HoldResponse.class,
                 () -> HoldResponse.from(holds.place(
                         accountId, request.toAccountId(), amount, request.reference(), request.ttlSeconds())));
 

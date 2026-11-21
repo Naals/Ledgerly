@@ -116,17 +116,25 @@ class TransferIdempotencyApiIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void failedTransferCanBeRetriedWithTheSameKey() throws Exception {
+    void rejectedTransferStaysRejectedAfterFundingAndANewKeyCanSucceed() throws Exception {
         String key = UUID.randomUUID().toString();
         mvc.perform(transfer(key, 200_000))
                 .andExpect(status().isUnprocessableEntity())
+                .andExpect(header().string("Idempotent-Replayed", "false"))
                 .andExpect(jsonPath("$.type").value("urn:ledgerly:problem:insufficient-funds"));
 
         cash.deposit(alice.id(), Money.of(200_000, "KZT"));
 
         mvc.perform(transfer(key, 200_000))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(header().string("Idempotent-Replayed", "true"))
+                .andExpect(jsonPath("$.type").value("urn:ledgerly:problem:insufficient-funds"));
+        assertBalances(300_000, 0);
+
+        mvc.perform(transfer(UUID.randomUUID().toString(), 200_000))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Idempotent-Replayed", "false"));
+        assertBalances(100_000, 200_000);
     }
 
     private void assertBalances(long aliceMinor, long bobMinor) throws Exception {

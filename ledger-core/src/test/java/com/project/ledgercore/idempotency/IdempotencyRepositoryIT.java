@@ -37,7 +37,7 @@ class IdempotencyRepositoryIT extends AbstractIntegrationTest {
         keys.complete("transfer", key, "{\"ok\":true}");
 
         assertThat(keys.find("transfer", key))
-                .contains(new IdempotencyRepository.StoredRequest(HASH, "{\"ok\":true}"));
+                .contains(new IdempotencyRepository.StoredRequest(HASH, "{\"ok\":true}", null));
         assertThat(keys.find("transfer", newKey())).isEmpty();
     }
 
@@ -47,6 +47,17 @@ class IdempotencyRepositoryIT extends AbstractIntegrationTest {
 
         assertThat(keys.claim("transfer", key, HASH)).isTrue();
         assertThat(keys.claim("deposit", key, HASH)).isTrue();
+    }
+
+    @Test
+    void aRejectedOutcomeCanBeFoundWithoutASuccessBody() {
+        String key = newKey();
+        StoredRejection rejection = new StoredRejection(422, "insufficient-funds", "Not enough funds");
+        keys.claim("transfer", key, HASH);
+        keys.reject("transfer", key, rejection);
+
+        assertThat(keys.find("transfer", key))
+                .contains(new IdempotencyRepository.StoredRequest(HASH, null, rejection));
     }
 
     @Test

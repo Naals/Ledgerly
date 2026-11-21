@@ -39,14 +39,27 @@ public class IdempotencyRepository {
     }
 
     public Optional<StoredRequest> find(String scope, String key) {
-        return jdbc.sql("SELECT request_hash, response_body FROM idempotency_keys "
+        return jdbc.sql("SELECT request_hash, response_body, error_status, error_code, error_message FROM idempotency_keys "
                         + "WHERE scope = :scope AND idempotency_key = :key")
                 .param("scope", scope)
                 .param("key", key)
-                .query((rs, rowNum) -> new StoredRequest(rs.getString("request_hash"), rs.getString("response_body")))
+                .query((rs, rowNum) -> new StoredRequest(rs.getString("request_hash"), rs.getString("response_body"),
+                        rs.getObject("error_status") == null ? null : new StoredRejection(
+                                rs.getInt("error_status"), rs.getString("error_code"), rs.getString("error_message"))))
                 .optional();
     }
 
-    public record StoredRequest(String requestHash, String responseBody) {
+    void reject(String scope, String key, StoredRejection rejection) {
+        jdbc.sql("UPDATE idempotency_keys SET error_status = :status, error_code = :code, error_message = :message "
+                        + "WHERE scope = :scope AND idempotency_key = :key")
+                .param("status", rejection.status())
+                .param("code", rejection.code())
+                .param("message", rejection.message())
+                .param("scope", scope)
+                .param("key", key)
+                .update();
+    }
+
+    public record StoredRequest(String requestHash, String responseBody, StoredRejection rejection) {
     }
 }
