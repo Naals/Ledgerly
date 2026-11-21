@@ -47,9 +47,10 @@ class PaymentReversalKafkaIT {
     @Test
     void aReversalEventFromKafkaReversesThePayment() {
         UUID paymentId = pendingPayment();
-        complete(paymentId);
+        UUID transactionId = UUID.randomUUID();
+        complete(paymentId, transactionId);
 
-        send(PaymentReversalHandlerIT.reversalOf(paymentId));
+        send(PaymentReversalHandlerIT.reversalOf(paymentId, transactionId));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(statusOf(paymentId)).isEqualTo("REVERSED"));
@@ -58,14 +59,15 @@ class PaymentReversalKafkaIT {
     @Test
     void aReversalThatBeatsThePaymentToCompletedIsRetriedUntilThePaymentCatchesUp() {
         UUID paymentId = pendingPayment();
+        UUID transactionId = UUID.randomUUID();
 
-        send(PaymentReversalHandlerIT.reversalOf(paymentId));
+        send(PaymentReversalHandlerIT.reversalOf(paymentId, transactionId));
 
         // the ledger is ahead of us: for a while the event keeps failing and the payment is left alone
         await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(statusOf(paymentId)).isEqualTo("PENDING"));
 
-        complete(paymentId);
+        complete(paymentId, transactionId);
 
         await().atMost(Duration.ofSeconds(40)).untilAsserted(() ->
                 assertThat(statusOf(paymentId)).isEqualTo("REVERSED"));
@@ -85,9 +87,9 @@ class PaymentReversalKafkaIT {
         return id;
     }
 
-    private void complete(UUID paymentId) {
+    private void complete(UUID paymentId, UUID transactionId) {
         jdbc.update("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = ? WHERE id = ?",
-                UUID.randomUUID(), paymentId);
+                transactionId, paymentId);
     }
 
     private String statusOf(UUID paymentId) {

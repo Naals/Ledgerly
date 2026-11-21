@@ -21,6 +21,7 @@ public class PaymentReversalHandler {
         NOT_A_REVERSAL,
         ALREADY_PROCESSED,
         NOT_OUR_PAYMENT,
+        TRANSACTION_MISMATCH,
         PAYMENT_REVERSED,
         PAYMENT_ALREADY_REVERSED,
         PAYMENT_NOT_REVERSIBLE
@@ -38,7 +39,7 @@ public class PaymentReversalHandler {
      * Handles one ledger event. Remembering the event and changing the payment happen in one transaction, so a
      * redelivered event is recognised and ignored, and a crash in between leaves neither half done.
      *
-     * @throws PaymentNotSettledException if the payment is still PENDING: the ledger can be ahead of this service,
+     * @throws PaymentNotSettledException if the payment is still PENDING or AUTHORIZED: the ledger can be ahead of this service,
      *         so nothing is recorded and the event is delivered again later
      */
     @Transactional
@@ -56,8 +57,17 @@ public class PaymentReversalHandler {
             return Outcome.NOT_OUR_PAYMENT;
         }
 
-        UUID paymentId = payment.get().id();
-        return switch (ReversalAction.forPayment(payment.get().status())) {
+        Payment matched = payment.get();
+        UUID paymentId = matched.id();
+        ReversalAction action = ReversalAction.forPayment(matched.status());
+        // A reference finds a candidate payment, but callers can reuse that reference on unrelated transfers.
+        // Wait for an unsettled payment to learn its transaction before deciding whether this event belongs to it.
+        if ((action == ReversalAction.REVERSE || action == ReversalAction.ALREADY_REVERSED)
+                && (event.reversesTransactionId() == null
+                    || !event.reversesTransactionId().equals(matched.ledgerTransactionId()))) {
+            return Outcome.TRANSACTION_MISMATCH;
+        }
+        return switch (action) {
             case REVERSE -> {
                 payments.markReversed(paymentId);
                 log.info("Payment {} was reversed by ledger transaction {}", paymentId, event.transactionId());
