@@ -6,12 +6,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /** Test double for the broker: remembers what it was asked to deliver, in order, and fails when a test says so. */
 @Component
 @Primary
+@ConditionalOnProperty(name = "payments.outbox.publisher", havingValue = "log", matchIfMissing = true)
 public class RecordingEventPublisher implements EventPublisher {
 
     private final List<OutboxEvent> published = new CopyOnWriteArrayList<>();
