@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Freezing, unfreezing and closing customer accounts, with a history of every change. */
 @Service
+@Transactional
 public class AccountLifecycleService {
 
     static final int MAX_REASON_LENGTH = 255;
@@ -62,7 +63,6 @@ public class AccountLifecycleService {
      * so the change cannot interleave with a debit, and the balance seen when closing is the real one.
      * Asking for the status the account already has changes nothing and records nothing.
      */
-    @Transactional
     public Account changeStatus(UUID accountId, AccountStatus target, String reason) {
         String cleanReason = cleanReason(reason);
         Account account = accounts.findAndLockById(accountId)

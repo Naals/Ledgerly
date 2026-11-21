@@ -10,7 +10,10 @@ import com.project.ledgercore.support.AbstractIntegrationTest;
 import java.util.Currency;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class AccountStatusHistoryIT extends AbstractIntegrationTest {
@@ -63,6 +66,31 @@ class AccountStatusHistoryIT extends AbstractIntegrationTest {
         assertThatThrownBy(() -> lifecycle.close(alice.id(), "customer request"));
 
         assertThat(lifecycle.history(alice.id())).isEmpty();
+    }
+
+    @ParameterizedTest
+    @EnumSource(AccountStatus.class)
+    void aHistoryWriteFailureRollsBackThePublicLifecycleOperation(AccountStatus target) {
+        Account alice = newAccount();
+        if (target == AccountStatus.ACTIVE) {
+            lifecycle.freeze(alice.id());
+        }
+        AccountStatus before = accounts.findById(alice.id()).orElseThrow().status();
+        var historyBefore = lifecycle.history(alice.id());
+
+        // PostgreSQL rejects NUL in text. This fails the history INSERT after the status UPDATE,
+        // exercising the public entry point without a transaction supplied by the test.
+        String invalidDatabaseText = "reason\u0000";
+        assertThatThrownBy(() -> {
+            switch (target) {
+                case FROZEN -> lifecycle.freeze(alice.id(), invalidDatabaseText);
+                case ACTIVE -> lifecycle.unfreeze(alice.id(), invalidDatabaseText);
+                case CLOSED -> lifecycle.close(alice.id(), invalidDatabaseText);
+            }
+        }).isInstanceOf(DataAccessException.class);
+
+        assertThat(accounts.findById(alice.id()).orElseThrow().status()).isEqualTo(before);
+        assertThat(lifecycle.history(alice.id())).isEqualTo(historyBefore);
     }
 
     @Test
