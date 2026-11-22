@@ -2,6 +2,7 @@ package com.project.paymentservice.payment;
 
 import com.project.paymentservice.common.BadRequestException;
 import com.project.paymentservice.common.BusinessRuleException;
+import com.project.paymentservice.common.CorrelationContext;
 import com.project.paymentservice.common.RequestFingerprint;
 import com.project.paymentservice.common.ServiceUnavailableException;
 import com.project.paymentservice.ledger.HoldInfo;
@@ -59,6 +60,12 @@ public class PaymentService {
      * one outcome can be recorded.
      */
     public Payment execute(UUID paymentId) {
+        try (var correlation = CorrelationContext.openOrCurrent(paymentId.toString())) {
+            return executeInContext(paymentId);
+        }
+    }
+
+    private Payment executeInContext(UUID paymentId) {
         Payment payment = get(paymentId);
         if (payment.status() != PaymentStatus.PENDING) {
             return payment;
@@ -143,6 +150,12 @@ public class PaymentService {
      * call can simply be repeated.
      */
     public Payment capture(UUID paymentId) {
+        try (var correlation = CorrelationContext.openOrCurrent(paymentId.toString())) {
+            return captureInContext(paymentId);
+        }
+    }
+
+    private Payment captureInContext(UUID paymentId) {
         Payment payment = get(paymentId);
         if (payment.captureMode() != CaptureMode.MANUAL) {
             throw new PaymentNotCapturableException(paymentId, "it was paid in one step (AUTOMATIC)");
@@ -174,6 +187,12 @@ public class PaymentService {
      * told, for example when the answer to a capture was lost.
      */
     public Settlement settle(Payment payment) {
+        try (var correlation = CorrelationContext.openOrCurrent(payment.id().toString())) {
+            return settleInContext(payment);
+        }
+    }
+
+    private Settlement settleInContext(Payment payment) {
         if (payment.status() != PaymentStatus.AUTHORIZED) {
             return Settlement.NOT_AUTHORIZED;
         }
@@ -238,6 +257,12 @@ public class PaymentService {
      * CANCELLED or EXPIRED returns it unchanged. A payment that has been captured cannot be cancelled.
      */
     public Payment cancel(UUID paymentId) {
+        try (var correlation = CorrelationContext.openOrCurrent(paymentId.toString())) {
+            return cancelInContext(paymentId);
+        }
+    }
+
+    private Payment cancelInContext(UUID paymentId) {
         Payment payment = get(paymentId);
         if (payment.captureMode() != CaptureMode.MANUAL) {
             throw new PaymentNotCancellableException(paymentId, "it was paid in one step (AUTOMATIC)");
