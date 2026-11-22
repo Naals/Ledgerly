@@ -43,6 +43,7 @@ ledger:
     kafka:
       send-timeout: 10s
       topics:
+        TransactionPosted: ledger.transaction-posted.v1
         HoldStatusChanged: ledger.hold-status-changed.v1
     cleanup:
       enabled: true
