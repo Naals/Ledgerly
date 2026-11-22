@@ -1,5 +1,6 @@
 package com.project.paymentservice.ledger;
 
+import com.project.paymentservice.common.CorrelationContext;
 import com.project.paymentservice.payment.Payment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -38,6 +39,7 @@ public class LedgerClient implements LedgerGateway {
             return ledger.post()
                     .uri("/api/v1/transfers")
                     .header("Idempotency-Key", payment.id().toString())
+                    .header(CorrelationContext.HEADER, correlationId(payment.id()))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .exchange((request, response) -> LedgerResponseInterpreter.interpret(
@@ -55,6 +57,7 @@ public class LedgerClient implements LedgerGateway {
         return call(ledger.post()
                         .uri("/api/v1/accounts/{accountId}/holds", payment.fromAccountId())
                         .header("Idempotency-Key", payment.id().toString())
+                        .header(CorrelationContext.HEADER, correlationId(payment.id()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(body),
                 LedgerResponseInterpreter::interpretHold);
@@ -64,19 +67,22 @@ public class LedgerClient implements LedgerGateway {
     public LedgerOutcome<UUID> capture(Payment payment) {
         return call(ledger.post()
                         .uri("/api/v1/holds/{holdId}/capture", payment.ledgerHoldId())
-                        .header("Idempotency-Key", payment.id().toString()),
+                        .header("Idempotency-Key", payment.id().toString())
+                        .header(CorrelationContext.HEADER, correlationId(payment.id())),
                 LedgerResponseInterpreter::interpretCapture);
     }
 
     @Override
     public LedgerOutcome<HoldInfo> release(Payment payment) {
-        return call(ledger.post().uri("/api/v1/holds/{holdId}/release", payment.ledgerHoldId()),
+        return call(ledger.post().uri("/api/v1/holds/{holdId}/release", payment.ledgerHoldId())
+                        .header(CorrelationContext.HEADER, correlationId(payment.id())),
                 LedgerResponseInterpreter::interpretHold);
     }
 
     @Override
     public LedgerOutcome<HoldInfo> findHold(UUID holdId) {
-        return call(ledger.get().uri("/api/v1/holds/{holdId}", holdId), LedgerResponseInterpreter::interpretHold);
+        return call(ledger.get().uri("/api/v1/holds/{holdId}", holdId)
+                .header(CorrelationContext.HEADER, correlationId(holdId)), LedgerResponseInterpreter::interpretHold);
     }
 
     private <T> LedgerOutcome<T> call(RestClient.RequestHeadersSpec<?> request,
@@ -87,6 +93,11 @@ public class LedgerClient implements LedgerGateway {
         } catch (ResourceAccessException e) {
             return new LedgerOutcome.Unavailable<>("The ledger could not be reached: " + e.getMessage());
         }
+    }
+
+    private static String correlationId(UUID fallback) {
+        String current = CorrelationContext.current();
+        return current != null ? current : fallback.toString();
     }
 
     private static String readBody(ClientHttpResponse response) throws IOException {
