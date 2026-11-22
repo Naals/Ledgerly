@@ -1,5 +1,7 @@
 package com.project.paymentservice.events;
 
+import com.project.paymentservice.common.CorrelationContext;
+import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -18,6 +20,9 @@ public class LedgerEventsListener {
 
     @KafkaListener(topics = "${payments.kafka.ledger-topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void onLedgerEvent(ConsumerRecord<String, String> record) {
-        reversals.handle(EventHeaders.eventId(record), record.value());
+        UUID eventId = EventHeaders.eventId(record);
+        try (CorrelationContext ignored = CorrelationContext.open(EventHeaders.correlationId(record, eventId))) {
+            reversals.handle(eventId, record.value());
+        }
     }
 }

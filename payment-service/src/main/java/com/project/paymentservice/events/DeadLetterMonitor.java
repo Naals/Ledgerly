@@ -1,5 +1,6 @@
 package com.project.paymentservice.events;
 
+import com.project.paymentservice.common.CorrelationContext;
 import java.nio.charset.StandardCharsets;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
@@ -32,15 +33,17 @@ class DeadLetterMonitor {
             groupId = "${spring.kafka.consumer.group-id}-dead-letter-monitor",
             properties = "metadata.max.age.ms=30000")
     void onDeadLetter(ConsumerRecord<String, String> record) {
-        String sourceTopic = header(record, KafkaHeaders.DLT_ORIGINAL_TOPIC);
-        log.error("An event was dead-lettered: source topic={} reason={} key={} topic={} offset={}",
-                sourceTopic, header(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE), record.key(), record.topic(),
-                record.offset());
-        metrics.deadLettered(sourceTopic != null ? sourceTopic : record.topic());
+        try (CorrelationContext ignored = CorrelationContext.open(EventHeaders.deadLetterCorrelationId(record))) {
+            String sourceTopic = header(record, KafkaHeaders.DLT_ORIGINAL_TOPIC);
+            log.error("An event was dead-lettered: source topic={} reason={} key={} topic={} offset={}",
+                    sourceTopic, header(record, KafkaHeaders.DLT_EXCEPTION_MESSAGE), record.key(), record.topic(),
+                    record.offset());
+            metrics.deadLettered(sourceTopic != null ? sourceTopic : record.topic());
+        }
     }
 
     private static String header(ConsumerRecord<String, String> record, String name) {
         Header header = record.headers().lastHeader(name);
-        return header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
+        return header == null || header.value() == null ? null : new String(header.value(), StandardCharsets.UTF_8);
     }
 }

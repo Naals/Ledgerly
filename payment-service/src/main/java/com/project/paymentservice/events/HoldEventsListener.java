@@ -1,5 +1,7 @@
 package com.project.paymentservice.events;
 
+import com.project.paymentservice.common.CorrelationContext;
+import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -18,6 +20,9 @@ public class HoldEventsListener {
 
     @KafkaListener(topics = "${payments.kafka.hold-topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void onHoldEvent(ConsumerRecord<String, String> record) {
-        handler.handle(EventHeaders.eventId(record), record.value());
+        UUID eventId = EventHeaders.eventId(record);
+        try (CorrelationContext ignored = CorrelationContext.open(EventHeaders.correlationId(record, eventId))) {
+            handler.handle(eventId, record.value());
+        }
     }
 }
