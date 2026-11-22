@@ -1,5 +1,6 @@
 package com.project.ledgercore.outbox;
 
+import com.project.ledgercore.common.CorrelationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +29,16 @@ public class OutboxPublisher {
     public int publishBatch(int batchSize) {
         int delivered = 0;
         for (OutboxEvent event : outbox.lockPending(batchSize)) {
-            try {
-                publisher.publish(event);
-                outbox.markPublished(event.seq());
-                delivered++;
-            } catch (RuntimeException e) {
-                outbox.markFailed(event.seq(), Backoff.delaySecondsAfter(event.attempts() + 1), describe(e));
+            String correlationId = CorrelationContext.isValid(event.correlationId())
+                    ? event.correlationId() : event.id().toString();
+            try (CorrelationContext ignored = CorrelationContext.open(correlationId)) {
+                try {
+                    publisher.publish(event);
+                    outbox.markPublished(event.seq());
+                    delivered++;
+                } catch (RuntimeException e) {
+                    outbox.markFailed(event.seq(), Backoff.delaySecondsAfter(event.attempts() + 1), describe(e));
+                }
             }
         }
         return delivered;

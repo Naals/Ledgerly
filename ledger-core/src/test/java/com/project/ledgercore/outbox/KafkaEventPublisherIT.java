@@ -34,7 +34,7 @@ class KafkaEventPublisherIT {
     void anEventIsDeliveredWithItsKeyHeadersAndPayload() {
         KafkaEventPublisher publisher = publisherFor(KAFKA.getBootstrapServers(), Duration.ofSeconds(15));
         OutboxEvent event = new OutboxEvent(1, UUID.randomUUID(), "transaction", UUID.randomUUID(),
-                "TransactionPosted", "{\"version\": 1, \"type\": \"TRANSFER\"}", 0);
+                "TransactionPosted", "{\"version\": 1, \"type\": \"TRANSFER\"}", 0, "originating-request");
 
         publisher.publish(event);
 
@@ -44,6 +44,7 @@ class KafkaEventPublisherIT {
         assertThat(header(record, "event-id")).isEqualTo(event.id().toString());
         assertThat(header(record, "event-type")).isEqualTo("TransactionPosted");
         assertThat(header(record, "aggregate-type")).isEqualTo("transaction");
+        assertThat(header(record, "correlation-id")).isEqualTo("originating-request");
     }
 
     @Test

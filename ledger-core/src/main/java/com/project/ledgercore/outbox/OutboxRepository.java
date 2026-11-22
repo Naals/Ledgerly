@@ -1,5 +1,6 @@
 package com.project.ledgercore.outbox;
 
+import com.project.ledgercore.common.CorrelationContext;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.RowMapper;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Repository;
 public class OutboxRepository {
 
     private static final String COLUMNS =
-            "seq, id, aggregate_type, aggregate_id, event_type, CAST(payload AS text) AS payload, attempts";
+            "seq, id, aggregate_type, aggregate_id, event_type, CAST(payload AS text) AS payload, attempts, correlation_id";
 
     private static final RowMapper<OutboxEvent> ROW_MAPPER = (rs, rowNum) -> new OutboxEvent(
             rs.getLong("seq"),
@@ -19,7 +20,8 @@ public class OutboxRepository {
             rs.getObject("aggregate_id", UUID.class),
             rs.getString("event_type"),
             rs.getString("payload"),
-            rs.getInt("attempts"));
+            rs.getInt("attempts"),
+            rs.getString("correlation_id"));
 
     private final JdbcClient jdbc;
 
@@ -28,12 +30,13 @@ public class OutboxRepository {
     }
 
     public void add(String aggregateType, UUID aggregateId, String eventType, String payloadJson) {
-        jdbc.sql("INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload) "
-                        + "VALUES (:aggregateType, :aggregateId, :eventType, CAST(:payload AS jsonb))")
+        jdbc.sql("INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload, correlation_id) "
+                        + "VALUES (:aggregateType, :aggregateId, :eventType, CAST(:payload AS jsonb), :correlationId)")
                 .param("aggregateType", aggregateType)
                 .param("aggregateId", aggregateId)
                 .param("eventType", eventType)
                 .param("payload", payloadJson)
+                .param("correlationId", CorrelationContext.current())
                 .update();
     }
 

@@ -16,6 +16,7 @@ import com.project.ledgercore.account.AccountRepository;
 import com.project.ledgercore.account.DebitGuard;
 import com.project.ledgercore.common.BadRequestException;
 import com.project.ledgercore.common.Money;
+import com.project.ledgercore.outbox.OutboxCorrelation;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.UUID;
@@ -38,14 +39,16 @@ public class HoldService {
     private final DebitGuard debitGuard;
     private final AccountLocker locker;
     private final LedgerService ledger;
+    private final OutboxCorrelation correlation;
 
     public HoldService(HoldRepository holds, AccountRepository accounts, DebitGuard debitGuard,
-                       AccountLocker locker, LedgerService ledger) {
+                       AccountLocker locker, LedgerService ledger, OutboxCorrelation correlation) {
         this.holds = holds;
         this.accounts = accounts;
         this.debitGuard = debitGuard;
         this.locker = locker;
         this.ledger = ledger;
+        this.correlation = correlation;
     }
 
     /**
@@ -74,6 +77,7 @@ public class HoldService {
             requireUsable(account, captured);
         }
 
+        correlation.bind();
         holds.markCaptured(holdId, captured.minorUnits());
         UUID transactionId = ledger.post(new PostingRequest(
                 TransactionType.TRANSFER,
@@ -116,6 +120,7 @@ public class HoldService {
         Hold hold = holds.findByIdForUpdate(holdId).orElseThrow(() -> new HoldNotFoundException(holdId));
         return switch (hold.status()) {
             case ACTIVE -> {
+                correlation.bind();
                 holds.finish(holdId, HoldStatus.RELEASED);
                 yield holds.findById(holdId).orElseThrow(() -> new HoldNotFoundException(holdId));
             }
@@ -137,6 +142,7 @@ public class HoldService {
      */
     @Transactional
     public int expireDue(int limit) {
+        correlation.bind();
         List<Hold> due = holds.lockDue(limit).stream()
                 .sorted(Comparator.comparing(Hold::accountId, LockOrder.BY_ID))
                 .toList();

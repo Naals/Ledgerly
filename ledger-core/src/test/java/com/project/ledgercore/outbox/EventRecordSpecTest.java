@@ -42,6 +42,17 @@ class EventRecordSpecTest {
     }
 
     @Test
+    void carriesOnlySafePersistedCorrelationMetadata() {
+        OutboxEvent correlated = new OutboxEvent(42, eventId, "transaction", transactionId, "TransactionPosted", "{}", 0,
+                "request-123");
+        assertThat(EventRecordSpec.of(correlated, TOPICS).headers()).containsEntry("correlation-id", "request-123");
+
+        OutboxEvent invalid = new OutboxEvent(42, eventId, "transaction", transactionId, "TransactionPosted", "{}", 0,
+                "bad\nrequest");
+        assertThat(EventRecordSpec.of(invalid, TOPICS).headers()).doesNotContainKey("correlation-id");
+    }
+
+    @Test
     void anEventTypeWithoutATopicIsAnErrorNotASilentDrop() {
         assertThatThrownBy(() -> EventRecordSpec.of(event("SomethingElse"), TOPICS))
                 .isInstanceOf(IllegalStateException.class)
