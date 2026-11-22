@@ -10,5 +10,12 @@ public record OutboxEvent(
         UUID aggregateId,
         String eventType,
         String payload,
-        int attempts) {
+        int attempts,
+        String correlationId) {
+
+    /** Older events and callers without correlation metadata remain valid. */
+    public OutboxEvent(long seq, UUID id, String aggregateType, UUID aggregateId,
+                       String eventType, String payload, int attempts) {
+        this(seq, id, aggregateType, aggregateId, eventType, payload, attempts, null);
+    }
 }

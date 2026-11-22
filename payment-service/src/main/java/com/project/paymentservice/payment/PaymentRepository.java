@@ -1,5 +1,6 @@
 package com.project.paymentservice.payment;
 
+import com.project.paymentservice.common.CorrelationContext;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -7,6 +8,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * SQL only. Every update is guarded by the status the payment must be in, so if two instances (or a capture and a
@@ -79,7 +81,9 @@ public class PaymentRepository {
     }
 
     /** One-step payments: records the ledger's success. False if the payment was no longer pending. */
+    @Transactional
     public boolean markCompleted(UUID id, UUID ledgerTransactionId) {
+        correlate(id);
         return jdbc.sql("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = :transactionId "
                         + "WHERE id = :id AND status = 'PENDING'")
                 .param("transactionId", ledgerTransactionId)
@@ -88,7 +92,9 @@ public class PaymentRepository {
     }
 
     /** Records the ledger's final refusal. False if the payment was no longer pending. */
+    @Transactional
     public boolean markFailed(UUID id, String failureCode) {
+        correlate(id);
         return jdbc.sql("UPDATE payments SET status = 'FAILED', failure_code = :code "
                         + "WHERE id = :id AND status = 'PENDING'")
                 .param("code", failureCode)
@@ -104,7 +110,9 @@ public class PaymentRepository {
     }
 
     /** Two-step payments, step one: the ledger holds the money. False if the payment was no longer pending. */
+    @Transactional
     public boolean markAuthorized(UUID id, UUID ledgerHoldId, OffsetDateTime authorizationExpiresAt) {
+        correlate(id);
         return jdbc.sql("UPDATE payments SET status = 'AUTHORIZED', ledger_hold_id = :hold, "
                         + "authorization_expires_at = :expiresAt WHERE id = :id AND status = 'PENDING'")
                 .param("hold", ledgerHoldId)
@@ -114,7 +122,9 @@ public class PaymentRepository {
     }
 
     /** Two-step payments, step two: the ledger moved the money. False if the payment was no longer authorized. */
+    @Transactional
     public boolean markCaptured(UUID id, UUID ledgerTransactionId) {
+        correlate(id);
         return jdbc.sql("UPDATE payments SET status = 'COMPLETED', ledger_transaction_id = :transactionId "
                         + "WHERE id = :id AND status = 'AUTHORIZED'")
                 .param("transactionId", ledgerTransactionId)
@@ -123,24 +133,39 @@ public class PaymentRepository {
     }
 
     /** The ledger released the hold. False if the payment was no longer authorized. */
+    @Transactional
     public boolean markCancelled(UUID id) {
+        correlate(id);
         return jdbc.sql("UPDATE payments SET status = 'CANCELLED' WHERE id = :id AND status = 'AUTHORIZED'")
                 .param("id", id)
                 .update() == 1;
     }
 
     /** The hold ran out. False if the payment was no longer authorized. */
+    @Transactional
     public boolean markExpired(UUID id) {
+        correlate(id);
         return jdbc.sql("UPDATE payments SET status = 'EXPIRED' WHERE id = :id AND status = 'AUTHORIZED'")
                 .param("id", id)
                 .update() == 1;
     }
 
     /** Marks the COMPLETED payment as REVERSED. Returns how many changed (0 if it was not COMPLETED). */
+    @Transactional
     public int markReversed(UUID paymentId) {
+        correlate(paymentId);
         return jdbc.sql("UPDATE payments SET status = 'REVERSED' WHERE id = :id AND status = 'COMPLETED'")
                 .param("id", paymentId)
                 .update();
+    }
+
+    /** The trigger reads this setting on the same connection; LOCAL prevents pooled-connection leakage. */
+    private void correlate(UUID paymentId) {
+        String correlationId = CorrelationContext.current();
+        jdbc.sql("SELECT set_config('ledgerly.correlation_id', :correlationId, true)")
+                .param("correlationId", correlationId != null ? correlationId : paymentId.toString())
+                .query(String.class)
+                .single();
     }
 
     /** Pending payments nobody has touched for {@code olderThanSeconds}, oldest first. */

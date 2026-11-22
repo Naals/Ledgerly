@@ -3,6 +3,7 @@ package com.project.paymentservice.outbox;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
+import com.project.paymentservice.common.CorrelationContext;
 import com.project.paymentservice.payment.CaptureMode;
 import com.project.paymentservice.payment.CreatePayment;
 import com.project.paymentservice.payment.Payment;
@@ -60,11 +61,19 @@ class PaymentEventsKafkaIT {
 
     @Test
     void aPaymentsEventsArriveInOrderUnderOneKeyWithTheirIdentityInHeaders() {
-        Payment authorized = payments.create("key-" + UUID.randomUUID(), new CreatePayment(
-                UUID.randomUUID(), UUID.randomUUID(), 100_000, "KZT", CaptureMode.MANUAL)).payment();
-        payments.capture(authorized.id());
-        while (outbox.publishBatch(100) > 0) {
-            // a payment's next event is only due once its previous one is delivered
+        Payment authorized;
+        try (CorrelationContext ignored = CorrelationContext.open("authorization-request")) {
+            authorized = payments.create("key-" + UUID.randomUUID(), new CreatePayment(
+                    UUID.randomUUID(), UUID.randomUUID(), 100_000, "KZT", CaptureMode.MANUAL)).payment();
+        }
+        try (CorrelationContext ignored = CorrelationContext.open("capture-request")) {
+            payments.capture(authorized.id());
+        }
+        try (CorrelationContext ignored = CorrelationContext.open("unrelated-relay")) {
+            while (outbox.publishBatch(100) > 0) {
+                // a payment's next event is only due once its previous one is delivered
+            }
+            assertThat(CorrelationContext.current()).isEqualTo("unrelated-relay");
         }
 
         List<ConsumerRecord<String, String>> records = recordsFor(authorized.id().toString(), 2);
@@ -76,6 +85,8 @@ class PaymentEventsKafkaIT {
         assertThat(records.get(1).partition()).isEqualTo(records.get(0).partition());
         assertThat(header(records.get(0), "event-type")).isEqualTo("PaymentStatusChanged");
         assertThat(header(records.get(0), "event-id")).isNotEqualTo(header(records.get(1), "event-id"));
+        assertThat(header(records.get(0), "correlation-id")).isEqualTo("authorization-request");
+        assertThat(header(records.get(1), "correlation-id")).isEqualTo("capture-request");
     }
 
     private List<ConsumerRecord<String, String>> recordsFor(String key, int expected) {

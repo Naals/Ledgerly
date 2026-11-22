@@ -1,5 +1,6 @@
 package com.project.paymentservice.outbox;
 
+import com.project.paymentservice.common.CorrelationContext;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -20,6 +21,9 @@ public record EventRecordSpec(String topic, String key, String value, Map<String
         headers.put("event-id", event.id().toString());
         headers.put("event-type", event.eventType());
         headers.put("aggregate-type", event.aggregateType());
+        if (CorrelationContext.isValid(event.correlationId())) {
+            headers.put(CorrelationContext.KAFKA_HEADER, event.correlationId());
+        }
         return new EventRecordSpec(topic, event.aggregateId().toString(), event.payload(), Map.copyOf(headers));
     }
 }

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 public class OutboxRepository {
 
     private static final String COLUMNS = "o.seq, o.id, o.aggregate_type, o.aggregate_id, o.event_type, "
-            + "CAST(o.payload AS text) AS payload, o.attempts";
+            + "CAST(o.payload AS text) AS payload, o.attempts, o.correlation_id";
 
     private static final RowMapper<OutboxEvent> ROW_MAPPER = (rs, rowNum) -> new OutboxEvent(
             rs.getLong("seq"),
@@ -19,7 +19,8 @@ public class OutboxRepository {
             rs.getObject("aggregate_id", UUID.class),
             rs.getString("event_type"),
             rs.getString("payload"),
-            rs.getInt("attempts"));
+            rs.getInt("attempts"),
+            rs.getString("correlation_id"));
 
     private final JdbcClient jdbc;
 
