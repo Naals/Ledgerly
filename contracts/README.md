@@ -8,6 +8,11 @@ produces must equal the sample) and by every consumer's test (the sample must pa
 Topic `ledger.transaction-posted.v1`, key = transaction id, headers `event-id`, `event-type`, `aggregate-type`.
 Published by ledger-core for every committed posting, including reversals.
 
+All outbox topics may also carry an optional `correlation-id` header containing 1–64 ASCII letters,
+digits, dots, underscores, or hyphens. It is immutable delivery metadata, separate from the JSON
+contract, and does not replace `event-id` for deduplication. Older events may omit it; consumers
+fall back to their event ID for logging. See [ADR 0020](../docs/adr/0020-request-correlation.md).
+
 | field | meaning |
 |---|---|
 | `version` | contract version, 1 |

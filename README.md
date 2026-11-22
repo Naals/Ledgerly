@@ -170,3 +170,14 @@ Event contracts: [`contracts`](contracts). Design decisions: [`docs/adr`](docs/a
 - `payments.payment-status-changed.v1`      from payment-service, one per payment status change (key: payment id,
   in order per payment; `sequence` and the `event-id` header for deduplication)
   Samples of every event are in `contracts/` and are checked on both sides.
+
+## Request correlation
+
+Both APIs accept and echo `X-Correlation-Id` (1–64 letters, digits, dots, underscores, or hyphens).
+Payment-service forwards it to the ledger. Outbox events retain it across delivery retries and
+publish it as the optional Kafka `correlation-id` header; consumers carry it into their own events.
+Missing or invalid request IDs are replaced with a UUID.
+
+Run `bash scripts/smoke-correlation.sh` against the local stack to verify the HTTP and Kafka paths.
+See the [correlation runbook](docs/operations/request-correlation.md) for log/event lookups and
+[ADR 0020](docs/adr/0020-request-correlation.md) for replay and background-job behavior.
