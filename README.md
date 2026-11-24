@@ -24,7 +24,7 @@ to run both services and Kafka in containers instead.
 
 ```bash
 mvn test       # fast unit tests
-mvn verify     # + integration tests against real PostgreSQL via Testcontainers (Docker required)
+mvn verify     # + integration tests against real PostgreSQL and Kafka (Docker required)
 ```
 ## API tour
 
@@ -181,3 +181,11 @@ Missing or invalid request IDs are replaced with a UUID.
 Run `bash scripts/smoke-correlation.sh` against the local stack to verify the HTTP and Kafka paths.
 See the [correlation runbook](docs/operations/request-correlation.md) for log/event lookups and
 [ADR 0020](docs/adr/0020-request-correlation.md) for replay and background-job behavior.
+
+## Consumer lag monitoring
+
+Payment-service exports committed Kafka lag for its ledger and hold topics, including when
+listeners stop. Sampling failures and stale data appear as unknown lag with separate health
+metrics. Prometheus alerts and Grafana panels cover backlog, invalid offsets, and unavailable
+monitoring. See the [consumer lag runbook](docs/operations/consumer-lag.md) for configuration
+and `python3 scripts/smoke-consumer-lag.py` for an isolated backlog/outage/recovery check.
