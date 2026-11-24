@@ -65,3 +65,34 @@ groups:
           description: >
             Reconciliation settled a payment that was not
             updated through the normal hold-event path.
+
+      # Every payment-service replica samples the same consumer group. Use max,
+      # not sum, so additional replicas do not multiply the reported backlog.
+      - alert: PaymentConsumerLagHigh
+        expr: max by (group, topic) (payments_kafka_consumer_lag) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment consumer group is falling behind"
+          description: "Group {{ $labels.group }} has more than 100 retained offsets pending on {{ $labels.topic }} for 2 minutes. Check consumer errors and Kafka availability; offset distance approximates backlog, not an exact event count."
+
+      # Keep instance labels: a healthy replica must not hide another sampler's
+      # startup, failure or stale sample. Unknown lag must never imply zero lag.
+      - alert: PaymentConsumerLagMonitoringUnavailable
+        expr: (payments_kafka_lag_sample_success == 0) or (payments_kafka_lag_sample_age_seconds > 60)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment consumer lag sample is unavailable"
+          description: "Lag sampling for group {{ $labels.group }} on {{ $labels.instance }} has failed, has not completed, or is older than 60 seconds. Treat backlog as unknown and check Kafka access and sampler logs."
+
+      - alert: PaymentConsumerOffsetsInvalid
+        expr: max by (group, topic) (payments_kafka_consumer_invalid_offsets) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Payment consumer committed offsets are invalid"
+          description: "Group {{ $labels.group }} has committed offsets outside the retained range on {{ $labels.topic }}. Backlog is unknown; investigate retention, topic recreation and consumer offset resets."

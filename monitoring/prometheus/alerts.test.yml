@@ -1,0 +1,177 @@
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: backlog at threshold does not alert
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: '100+0x5'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts: []
+
+  - name: sustained backlog alerts after two minutes and recovers
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: '150 150 150 0 0'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts:
+          - exp_labels:
+              group: payment-service
+              topic: ledger.holds.v1
+              severity: warning
+            exp_annotations:
+              summary: "Payment consumer group is falling behind"
+              description: "Group payment-service has more than 100 retained offsets pending on ledger.holds.v1 for 2 minutes. Check consumer errors and Kafka availability; offset distance approximates backlog, not an exact event count."
+      - eval_time: 3m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts: []
+
+  - name: duplicate samplers do not double count backlog
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: '60+0x5'
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-2"}'
+        values: '60+0x5'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts: []
+
+  - name: duplicate samplers produce one backlog alert
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: '150+0x3'
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-2"}'
+        values: '150+0x3'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts:
+          - exp_labels:
+              group: payment-service
+              topic: ledger.holds.v1
+              severity: warning
+            exp_annotations:
+              summary: "Payment consumer group is falling behind"
+              description: "Group payment-service has more than 100 retained offsets pending on ledger.holds.v1 for 2 minutes. Check consumer errors and Kafka availability; offset distance approximates backlog, not an exact event count."
+
+  - name: startup without a successful sample alerts and recovers
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_lag_sample_success{group="payment-service",instance="payment-1"}'
+        values: '0 0 1 1'
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: 'NaN NaN 0 0'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts:
+          - exp_labels:
+              group: payment-service
+              instance: payment-1
+              severity: warning
+            exp_annotations:
+              summary: "Payment consumer lag sample is unavailable"
+              description: "Lag sampling for group payment-service on payment-1 has failed, has not completed, or is older than 60 seconds. Treat backlog as unknown and check Kafka access and sampler logs."
+      - eval_time: 2m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts: []
+
+  - name: failed sampler is not masked by a healthy replica
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_lag_sample_success{group="payment-service",instance="payment-1"}'
+        values: '1 0 0 1'
+      - series: 'payments_kafka_lag_sample_success{group="payment-service",instance="payment-2"}'
+        values: '1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts:
+          - exp_labels:
+              group: payment-service
+              instance: payment-1
+              severity: warning
+            exp_annotations:
+              summary: "Payment consumer lag sample is unavailable"
+              description: "Lag sampling for group payment-service on payment-1 has failed, has not completed, or is older than 60 seconds. Treat backlog as unknown and check Kafka access and sampler logs."
+      - eval_time: 3m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts: []
+
+  - name: stale sample alerts even if success still reports one
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_lag_sample_success{group="payment-service",instance="payment-1"}'
+        values: '1+0x4'
+      - series: 'payments_kafka_lag_sample_age_seconds{group="payment-service",instance="payment-1"}'
+        values: '60 61 121 5 5'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts:
+          - exp_labels:
+              group: payment-service
+              instance: payment-1
+              severity: warning
+            exp_annotations:
+              summary: "Payment consumer lag sample is unavailable"
+              description: "Lag sampling for group payment-service on payment-1 has failed, has not completed, or is older than 60 seconds. Treat backlog as unknown and check Kafka access and sampler logs."
+      - eval_time: 3m
+        alertname: PaymentConsumerLagMonitoringUnavailable
+        exp_alerts: []
+
+  - name: invalid offsets alert once per topic and recover
+    interval: 1m
+    input_series:
+      - series: 'payments_kafka_consumer_invalid_offsets{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: '1 1 0 0'
+      - series: 'payments_kafka_consumer_invalid_offsets{group="payment-service",topic="ledger.holds.v1",instance="payment-2"}'
+        values: '1 1 0 0'
+      - series: 'payments_kafka_consumer_lag{group="payment-service",topic="ledger.holds.v1",instance="payment-1"}'
+        values: 'NaN NaN 0 0'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: PaymentConsumerOffsetsInvalid
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: PaymentConsumerOffsetsInvalid
+        exp_alerts:
+          - exp_labels:
+              group: payment-service
+              topic: ledger.holds.v1
+              severity: warning
+            exp_annotations:
+              summary: "Payment consumer committed offsets are invalid"
+              description: "Group payment-service has committed offsets outside the retained range on ledger.holds.v1. Backlog is unknown; investigate retention, topic recreation and consumer offset resets."
+      - eval_time: 2m
+        alertname: PaymentConsumerOffsetsInvalid
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: PaymentConsumerLagHigh
+        exp_alerts: []
